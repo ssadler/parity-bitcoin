@@ -1,6 +1,7 @@
 // TODO: panic handler
 use std::io;
 use std::net::SocketAddr;
+use std::default::Default;
 use jsonrpc_core;
 use jsonrpc_http_server::{self, ServerBuilder, Server, Host};
 
@@ -10,7 +11,7 @@ pub fn start_http<M: jsonrpc_core::Metadata>(
 	cors_domains: Option<Vec<String>>,
 	allowed_hosts: Option<Vec<String>>,
 	handler: jsonrpc_core::MetaIoHandler<M>,
-	) -> Result<Server, io::Error> {
+	) -> Result<Server, io::Error> where M: Default {
 
 	let cors_domains = cors_domains.map(|domains| {
 		domains.into_iter()
