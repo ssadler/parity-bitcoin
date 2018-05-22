@@ -2,4 +2,5 @@
 pub enum Network {
 	Mainnet,
 	Testnet,
+	Komodo
 }

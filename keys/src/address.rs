@@ -56,6 +56,8 @@ impl DisplayLayout for Address {
 
 		result[0] = match (self.network, self.kind) {
 			(Network::Mainnet, Type::P2PKH) => 0,
+			(Network::Komodo, Type::P2PKH) => 60,
+			(Network::Komodo, Type::P2SH) => 60,
 			(Network::Mainnet, Type::P2SH) => 5,
 			(Network::Testnet, Type::P2PKH) => 111,
 			(Network::Testnet, Type::P2SH) => 196,
@@ -80,6 +82,7 @@ impl DisplayLayout for Address {
 		let (network, kind) = match data[0] {
 			0 => (Network::Mainnet, Type::P2PKH),
 			5 => (Network::Mainnet, Type::P2SH),
+			60 => (Network::Komodo, Type::P2PKH),
 			111 => (Network::Testnet, Type::P2PKH),
 			196 => (Network::Testnet, Type::P2SH),
 			_ => return Err(Error::InvalidAddress),
@@ -136,6 +139,17 @@ mod tests {
 	}
 
 	#[test]
+	fn test_komodo_address_to_string() {
+		let address = Address {
+			kind: Type::P2PKH,
+			network: Network::Komodo,
+			hash: "05aab5342166f8594baf17a7d9bef5d567443327".into(),
+		};
+
+		assert_eq!("R9o9xTocqr6CeEDGDH6mEYpwLoMz6jNjMW".to_owned(), address.to_string());
+	}
+
+	#[test]
 	fn test_address_from_str() {
 		let address = Address {
 			kind: Type::P2PKH,
@@ -144,5 +158,16 @@ mod tests {
 		};
 
 		assert_eq!(address, "16meyfSoQV6twkAAxPe51RtMVz7PGRmWna".into());
+	}
+
+	#[test]
+	fn test_komodo_address_from_str() {
+		let address = Address {
+			kind: Type::P2PKH,
+			network: Network::Komodo,
+			hash: "05aab5342166f8594baf17a7d9bef5d567443327".into(),
+		};
+
+		assert_eq!(address, "R9o9xTocqr6CeEDGDH6mEYpwLoMz6jNjMW".into());
 	}
 }

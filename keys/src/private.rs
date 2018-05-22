@@ -57,6 +57,7 @@ impl DisplayLayout for Private {
 		let mut result = vec![];
 		let network_byte = match self.network {
 			Network::Mainnet => 128,
+			Network::Komodo => 128,
 			Network::Testnet => 239,
 		};
 
