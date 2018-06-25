@@ -88,6 +88,7 @@ pub struct SignedTransactionInput {
 	/// Previous transaction output index
 	pub vout: u32,
 	/// Input script
+	#[serde(rename = "scriptSig")]
 	pub script_sig: TransactionInputScript,
 	/// Sequence number
 	pub sequence: u32,
