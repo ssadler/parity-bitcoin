@@ -16,7 +16,7 @@ pub use self::block::RawBlock;
 pub use self::block_template::{BlockTemplate, BlockTemplateTransaction};
 pub use self::block_template_request::{BlockTemplateRequest, BlockTemplateRequestMode};
 pub use self::bytes::Bytes;
-pub use self::get_block_response::{GetBlockResponse, VerboseBlock};
+pub use self::get_block_response::{GetBlockResponse, VerboseBlock, VerboseBlockClient};
 pub use self::get_tx_out_response::GetTxOutResponse;
 pub use self::get_tx_out_set_info_response::GetTxOutSetInfoResponse;
 pub use self::hash::{H160, H256};
