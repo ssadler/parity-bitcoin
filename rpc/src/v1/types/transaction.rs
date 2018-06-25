@@ -93,7 +93,7 @@ pub struct SignedTransactionInput {
 	/// Sequence number
 	pub sequence: u32,
 	/// Hex-encoded witness data (if any)
-	pub txinwitness: Vec<String>,
+	pub txinwitness: Option<Vec<String>>,
 }
 
 /// Signed transaction output
