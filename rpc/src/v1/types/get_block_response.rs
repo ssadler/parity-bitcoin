@@ -75,7 +75,7 @@ pub struct VerboseBlockClient {
 	pub version: u32,
 	/// Block version as hex
 	#[serde(rename = "versionHex")]
-	pub version_hex: String,
+	pub version_hex: Option<String>,
 	/// Merkle root of this block
 	pub merkleroot: H256,
 	/// Transactions ids
