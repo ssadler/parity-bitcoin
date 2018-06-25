@@ -118,9 +118,9 @@ pub struct Transaction {
 	/// The transaction hash (differs from txid for witness transactions)
 	pub hash: Option<H256>,
 	/// The serialized transaction size
-	pub size: usize,
+	pub size: Option<usize>,
 	/// The virtual transaction size (differs from size for witness transactions)
-	pub vsize: usize,
+	pub vsize: Option<usize>,
 	/// The version
 	pub version: i32,
 	/// The lock time
