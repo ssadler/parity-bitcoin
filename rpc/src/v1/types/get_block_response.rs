@@ -86,7 +86,7 @@ pub struct VerboseBlockClient {
 	/// TODO: bitcoind always returns value, but we can calculate this only if height(block) > 2
 	pub mediantime: Option<u32>,
 	/// Block nonce
-	pub nonce: u32,
+	pub nonce: String,
 	/// Block nbits
 	pub bits: String,
 	/// Block difficulty
