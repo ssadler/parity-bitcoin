@@ -45,6 +45,49 @@ pub struct VerboseBlock {
 	/// Block nonce
 	pub nonce: u32,
 	/// Block nbits
+	pub bits: u32,
+	/// Block difficulty
+	pub difficulty: f64,
+	/// Expected number of hashes required to produce the chain up to this block (in hex)
+	pub chainwork: U256,
+	/// Hash of previous block
+	pub previousblockhash: Option<H256>,
+	/// Hash of next block
+	pub nextblockhash: Option<H256>,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq)]
+pub struct VerboseBlockClient {
+	/// Block hash
+	pub hash: H256,
+	/// Number of confirmations. -1 if block is on the side chain
+	pub confirmations: i64,
+	/// Block size
+	pub size: u32,
+	/// Block size, excluding witness data
+	pub strippedsize: u32,
+	/// Block weight
+	pub weight: u32,
+	/// Block height
+	/// TODO: bitcoind always returns value, but we hold this value for main chain blocks only
+	pub height: Option<u32>,
+	/// Block version
+	pub version: u32,
+	/// Block version as hex
+	#[serde(rename = "versionHex")]
+	pub version_hex: String,
+	/// Merkle root of this block
+	pub merkleroot: H256,
+	/// Transactions ids
+	pub tx: Vec<H256>,
+	/// Block time in seconds since epoch (Jan 1 1970 GMT)
+	pub time: u32,
+	/// Median block time in seconds since epoch (Jan 1 1970 GMT)
+	/// TODO: bitcoind always returns value, but we can calculate this only if height(block) > 2
+	pub mediantime: Option<u32>,
+	/// Block nonce
+	pub nonce: u32,
+	/// Block nbits
 	pub bits: String,
 	/// Block difficulty
 	pub difficulty: f64,
