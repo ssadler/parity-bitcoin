@@ -65,7 +65,7 @@ pub struct VerboseBlockClient {
 	/// Block size
 	pub size: u32,
 	/// Block size, excluding witness data
-	pub strippedsize: u32,
+	pub strippedsize: Option<u32>,
 	/// Block weight
 	pub weight: u32,
 	/// Block height
