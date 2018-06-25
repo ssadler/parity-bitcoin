@@ -67,7 +67,7 @@ pub struct VerboseBlockClient {
 	/// Block size, excluding witness data
 	pub strippedsize: Option<u32>,
 	/// Block weight
-	pub weight: u32,
+	pub weight: Option<u32>,
 	/// Block height
 	/// TODO: bitcoind always returns value, but we hold this value for main chain blocks only
 	pub height: Option<u32>,
