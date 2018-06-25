@@ -45,7 +45,7 @@ pub struct VerboseBlock {
 	/// Block nonce
 	pub nonce: u32,
 	/// Block nbits
-	pub bits: u32,
+	pub bits: String,
 	/// Block difficulty
 	pub difficulty: f64,
 	/// Expected number of hashes required to produce the chain up to this block (in hex)
