@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize, Serializer, Deserializer};
 use serde::de::Unexpected;
 use global_script::ScriptType as GlobalScriptType;
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ScriptType {
 	NonStandard,
 	PubKey,

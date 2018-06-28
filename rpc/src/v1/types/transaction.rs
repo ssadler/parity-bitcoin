@@ -54,7 +54,7 @@ pub struct TransactionOutputs {
 }
 
 /// Transaction input script
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct TransactionInputScript {
 	/// Script code
 	pub asm: String,
@@ -63,7 +63,7 @@ pub struct TransactionInputScript {
 }
 
 /// Transaction output script
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct TransactionOutputScript {
 	/// Script code
 	pub asm: String,
@@ -81,7 +81,7 @@ pub struct TransactionOutputScript {
 }
 
 /// Signed transaction input
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct SignedTransactionInput {
 	/// Previous transaction id
 	pub txid: H256,
@@ -97,7 +97,7 @@ pub struct SignedTransactionInput {
 }
 
 /// Signed transaction output
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct SignedTransactionOutput {
 	/// Output value in BTC
 	pub value: f64,
@@ -109,7 +109,7 @@ pub struct SignedTransactionOutput {
 }
 
 /// Transaction
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Transaction {
 	/// Raw transaction
 	pub hex: RawTransaction,
