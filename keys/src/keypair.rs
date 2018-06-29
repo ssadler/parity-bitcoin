@@ -6,6 +6,7 @@ use hash::{H264, H520};
 use network::Network;
 use {Public, Error, SECP256K1, Address, Type, Private, Secret};
 
+#[derive(PartialEq)]
 pub struct KeyPair {
 	private: Private,
 	public: Public,
