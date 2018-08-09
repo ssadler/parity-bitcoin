@@ -98,7 +98,7 @@ impl DisplayLayout for Private {
 impl fmt::Debug for Private {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		try!(writeln!(f, "prefix: {:?}", self.prefix));
-		try!(writeln!(f, "secret: {}", self.secret.to_hex()));
+        try!(writeln!(f, "secret: {}", self.secret.to_hex::<String>()));
 		writeln!(f, "compressed: {}", self.compressed)
 	}
 }

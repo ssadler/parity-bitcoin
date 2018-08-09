@@ -1,6 +1,6 @@
 extern crate core;
 extern crate log;
-extern crate rustc_serialize;
+extern crate rustc_hex as hex;
 extern crate serde;
 extern crate serde_json;
 #[macro_use]
@@ -13,4 +13,3 @@ extern crate keys;
 
 pub mod v1;
 
-pub use rustc_serialize::hex;
