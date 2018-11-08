@@ -1,6 +1,5 @@
 pub mod address;
 mod block;
-mod block_template;
 mod block_template_request;
 mod bytes;
 mod get_block_response;
@@ -10,10 +9,8 @@ mod hash;
 mod script;
 mod transaction;
 mod uint;
-mod nodes;
 
 pub use self::block::RawBlock;
-pub use self::block_template::{BlockTemplate, BlockTemplateTransaction};
 pub use self::block_template_request::{BlockTemplateRequest, BlockTemplateRequestMode};
 pub use self::bytes::Bytes;
 pub use self::get_block_response::{GetBlockResponse, VerboseBlock, VerboseBlockClient};
@@ -26,4 +23,3 @@ pub use self::transaction::{RawTransaction, Transaction, TransactionInput, Trans
 	TransactionOutputScript, SignedTransactionInput, GetRawTransactionResponse,
 	SignedTransactionOutput, TransactionOutputs};
 pub use self::uint::U256;
-pub use self::nodes::{AddNodeOperation, NodeInfo};
