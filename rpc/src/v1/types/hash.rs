@@ -47,6 +47,12 @@ macro_rules! impl_hash {
 			}
 		}
 
+		impl Into<Vec<u8>> for $name {
+			fn into(self) -> Vec<u8> {
+				self.0.to_vec()
+			}
+		}
+
 		impl PartialEq for $name {
 			fn eq(&self, other: &Self) -> bool {
 				let self_ref: &[u8] = &self.0;
