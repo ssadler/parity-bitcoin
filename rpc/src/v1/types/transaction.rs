@@ -130,12 +130,16 @@ pub struct Transaction {
 	/// Transaction outputs
 	pub vout: Vec<SignedTransactionOutput>,
 	/// Hash of the block this transaction is included in
+	#[serde(default)]
 	pub blockhash: H256,
 	/// Number of confirmations of this transaction
+	#[serde(default)]
 	pub confirmations: u32,
 	/// The transaction time in seconds since epoch (Jan 1 1970 GMT)
+	#[serde(default)]
 	pub time: u32,
 	/// The block time in seconds since epoch (Jan 1 1970 GMT)
+	#[serde(default)]
 	pub blocktime: u32,
 }
 
