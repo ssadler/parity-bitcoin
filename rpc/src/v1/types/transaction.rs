@@ -141,6 +141,9 @@ pub struct Transaction {
 	/// The block time in seconds since epoch (Jan 1 1970 GMT)
 	#[serde(default)]
 	pub blocktime: u32,
+	/// The block height transaction mined in
+	#[serde(default)]
+	pub height: u64,
 }
 
 /// Return value of `getrawtransaction` method
