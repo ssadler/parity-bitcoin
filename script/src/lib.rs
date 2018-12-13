@@ -1,7 +1,8 @@
-extern crate log;
 extern crate bitcrypto as crypto;
+extern crate blake2b_simd;
 extern crate chain;
 extern crate keys;
+extern crate log;
 extern crate primitives;
 extern crate serialization as ser;
 

@@ -1139,6 +1139,7 @@ pub fn eval_script(
 mod tests {
 	use bytes::Bytes;
 	use chain::Transaction;
+	use hash::{H256, H512};
 	use sign::SignatureVersion;
 	use script::MAX_SCRIPT_ELEMENT_SIZE;
 	use {
@@ -2263,6 +2264,10 @@ mod tests {
 			input_amount: amount,
 			signer: TransactionInputSigner {
 				version: 1,
+				overwintered: false,
+				version_group_id: 0,
+				expiry_height: 0,
+				value_balance: 0,
 				inputs: vec![
 					UnsignedTransactionInput {
 						previous_output: OutPoint {
@@ -2279,6 +2284,9 @@ mod tests {
 					},
 				],
 				lock_time: 0,
+				join_splits: vec![],
+				shielded_spends: vec![],
+				shielded_outputs: vec![],
 			},
 		};
 
@@ -2323,6 +2331,16 @@ mod tests {
 
 		let tx1 = Transaction {
 			version: 1,
+			binding_sig: H512::default(),
+			expiry_height: 0,
+			join_split_pubkey: H256::default(),
+			join_split_sig: H512::default(),
+			join_splits: vec![],
+			overwintered: false,
+			shielded_spends: vec![],
+			shielded_outputs: vec![],
+			value_balance: 0,
+			version_group_id: 0,
 			inputs: vec![TransactionInput {
 				previous_output: OutPoint {
 					hash: Default::default(),
@@ -2340,6 +2358,16 @@ mod tests {
 		};
 		let tx2 = Transaction {
 			version: 1,
+			binding_sig: H512::default(),
+			expiry_height: 0,
+			join_split_pubkey: H256::default(),
+			join_split_sig: H512::default(),
+			join_splits: vec![],
+			overwintered: false,
+			shielded_spends: vec![],
+			shielded_outputs: vec![],
+			value_balance: 0,
+			version_group_id: 0,
 			inputs: vec![TransactionInput {
 				previous_output: OutPoint {
 					hash: tx1.hash(),

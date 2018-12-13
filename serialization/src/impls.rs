@@ -2,7 +2,7 @@ use std::io;
 use byteorder::{ReadBytesExt, WriteBytesExt, LittleEndian};
 use bytes::Bytes;
 use compact::Compact;
-use hash::{H32, H48, H96, H160, H256, H264, H512, H520};
+use hash::{H32, H48, H64, H96, H160, H256, H264, H512, H520, OutCipherText, EncCipherText, ZkProofSapling, CipherText};
 use compact_integer::CompactInteger;
 use {Serializable, Stream, Deserializable, Reader, Error};
 
@@ -206,12 +206,17 @@ macro_rules! impl_ser_for_hash {
 
 impl_ser_for_hash!(H32, 4);
 impl_ser_for_hash!(H48, 6);
+impl_ser_for_hash!(H64, 8);
 impl_ser_for_hash!(H96, 12);
 impl_ser_for_hash!(H160, 20);
 impl_ser_for_hash!(H256, 32);
 impl_ser_for_hash!(H264, 33);
 impl_ser_for_hash!(H512, 64);
 impl_ser_for_hash!(H520, 65);
+impl_ser_for_hash!(OutCipherText, 80);
+impl_ser_for_hash!(ZkProofSapling, 192);
+impl_ser_for_hash!(EncCipherText, 580);
+impl_ser_for_hash!(CipherText, 601);
 
 impl Serializable for Bytes {
 	fn serialize(&self, stream: &mut Stream) {

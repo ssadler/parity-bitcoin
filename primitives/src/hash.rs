@@ -155,12 +155,17 @@ macro_rules! impl_hash {
 
 impl_hash!(H32, 4);
 impl_hash!(H48, 6);
+impl_hash!(H64, 8);
 impl_hash!(H96, 12);
 impl_hash!(H160, 20);
 impl_hash!(H256, 32);
 impl_hash!(H264, 33);
 impl_hash!(H512, 64);
 impl_hash!(H520, 65);
+impl_hash!(OutCipherText, 80);
+impl_hash!(ZkProofSapling, 192);
+impl_hash!(EncCipherText, 580);
+impl_hash!(CipherText, 601);
 
 known_heap_size!(0, H32, H48, H96, H160, H256, H264, H512, H520);
 
