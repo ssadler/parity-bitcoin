@@ -202,6 +202,10 @@ impl TransactionInputSigner {
 			return 1u8.into();
 		}
 
+        if self.version >= 3 {
+            return self.signature_hash_overwintered(input_index, script_pubkey, sighashtype, sighash).unwrap();
+        }
+
 		let script_pubkey = script_pubkey.without_separators();
 
 		let inputs = if sighash.anyone_can_pay {
@@ -566,5 +570,15 @@ mod tests {
 		);
 
 		assert_eq!(H256::from("f3148f80dfab5e573d5edfe7a850f5fd39234f80b5429d3a57edcc11e34c585b"), hash.unwrap());
+
+        let hash = signer.signature_hash(
+			0,
+            0,
+			&Script::from("1976a914507173527b4c3318a2aecd793bf1cfed705950cf88ac"),
+			SignatureVersion::Base,
+            1
+		);
+
+		assert_eq!(H256::from("f3148f80dfab5e573d5edfe7a850f5fd39234f80b5429d3a57edcc11e34c585b"), hash);
 	}
 }
