@@ -2275,7 +2275,8 @@ mod tests {
 							index: 0xffffffff,
 						},
 						sequence: 0xffffffff,
-					},
+                        amount: 0,
+                    },
 				],
 				outputs: vec![
 					TransactionOutput {

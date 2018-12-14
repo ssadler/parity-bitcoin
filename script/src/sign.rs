@@ -106,6 +106,7 @@ impl Sighash {
 pub struct UnsignedTransactionInput {
 	pub previous_output: OutPoint,
 	pub sequence: u32,
+	pub amount: u64,
 }
 
 /// Used for resigning and loading test transactions
@@ -114,6 +115,7 @@ impl From<TransactionInput> for UnsignedTransactionInput {
 		UnsignedTransactionInput {
 			previous_output: i.previous_output,
 			sequence: i.sequence,
+			amount: 0,
 		}
 	}
 }
@@ -306,7 +308,6 @@ impl TransactionInputSigner {
 	pub fn signature_hash_overwintered(
 		&self,
 		input_index: usize,
-		input_amount: u64,
 		script_pubkey: &Script,
 		sighashtype: u32,
 		sighash: Sighash
@@ -393,7 +394,7 @@ impl TransactionInputSigner {
 
 		sig_hash.update(&serialize(&self.inputs[input_index].previous_output));
 		sig_hash.update(script_pubkey);
-		sig_hash.update(&serialize(&input_amount));
+		sig_hash.update(&serialize(&self.inputs[input_index].amount));
 		sig_hash.update(&serialize(&self.inputs[input_index].sequence));
 
 		Ok(H256::from(sig_hash.finalize().as_bytes()))
@@ -483,6 +484,7 @@ mod tests {
 				index: previous_output_index,
 				hash: previous_tx_hash,
 			},
+			amount: 0,
 		};
 
 		let output = TransactionOutput {
@@ -552,12 +554,12 @@ mod tests {
 	#[test]
 	fn test_sapling_sig_hash() {
 		let tx: Transaction = "0400008085202f8901a8c685478265f4c14dada651969c45a65e1aeb8cd6791f2f5bb6a1d9952104d9010000006b483045022100a61e5d557568c2ddc1d9b03a7173c6ce7c996c4daecab007ac8f34bee01e6b9702204d38fdc0bcf2728a69fde78462a10fb45a9baa27873e6a5fc45fb5c76764202a01210365ffea3efa3908918a8b8627724af852fc9b86d7375b103ab0543cf418bcaa7ffeffffff02005a6202000000001976a9148132712c3ff19f3a151234616777420a6d7ef22688ac8b959800000000001976a9145453e4698f02a38abdaa521cd1ff2dee6fac187188ac29b0040048b004000000000000000000000000".into();
-		let signer = TransactionInputSigner::from(tx);
+		let mut signer = TransactionInputSigner::from(tx);
+		signer.inputs[0].amount = 50000000;
 
 		let sig_hash = Sighash::from_u32(SignatureVersion::Base, 1);
 		let hash = signer.signature_hash_overwintered(
 			0,
-			50000000,
 			&Script::from("1976a914507173527b4c3318a2aecd793bf1cfed705950cf88ac"),
 			1,
 			sig_hash
