@@ -10,7 +10,6 @@ use std::str::FromStr;
 use std::ops::Deref;
 use base58::{ToBase58, FromBase58};
 use crypto::checksum;
-use network::Network;
 use {DisplayLayout, Error, AddressHash};
 
 /// There are two address formats currently in use.
@@ -27,18 +26,18 @@ pub enum Type {
 	P2SH,
 }
 
-/// `AddressHash` with network identifier and format type
+/// `AddressHash` with prefix and t addr zcash prefix
 #[derive(Debug, PartialEq, Clone)]
 pub struct Address {
-	/// The type of the address.
-	pub kind: Type,
-	/// The network of the address.
-	pub network: Network,
+	/// The prefix of the address.
+	pub prefix: u8,
+	/// T addr prefix, additional prefix used by Zcash and some forks
+	pub t_addr_prefix: u8,
 	/// Public key hash.
 	pub hash: AddressHash,
 }
 
-pub struct AddressDisplayLayout([u8; 25]);
+pub struct AddressDisplayLayout(Vec<u8>);
 
 impl Deref for AddressDisplayLayout {
 	type Target = [u8];
@@ -52,53 +51,58 @@ impl DisplayLayout for Address {
 	type Target = AddressDisplayLayout;
 
 	fn layout(&self) -> Self::Target {
-		let mut result = [0u8; 25];
+		let mut result = vec![];
 
-		result[0] = match (self.network, self.kind) {
-			(Network::Mainnet, Type::P2PKH) => 0,
-			(Network::Komodo, Type::P2PKH) => 60,
-			(Network::Mainnet, Type::P2SH) => 5,
-			(Network::Komodo, Type::P2SH) => 85,
-			(Network::Testnet, Type::P2PKH) => 111,
-			(Network::Testnet, Type::P2SH) => 196,
-		};
+		if self.t_addr_prefix > 0 {
+			result.push(self.t_addr_prefix);
+		}
 
-		result[1..21].copy_from_slice(&*self.hash);
-		let cs = checksum(&result[0..21]);
-		result[21..25].copy_from_slice(&*cs);
+		result.push(self.prefix);
+		result.extend_from_slice(&*self.hash);
+		let cs = checksum(&result);
+		result.extend_from_slice(&*cs);
+
 		AddressDisplayLayout(result)
 	}
 
 	fn from_layout(data: &[u8]) -> Result<Self, Error> where Self: Sized {
-		if data.len() != 25 {
-			return Err(Error::InvalidAddress);
-		}
+		match data.len() {
+			25 => {
+				let cs = checksum(&data[0..21]);
+				if &data[21..] != &*cs {
+					return Err(Error::InvalidChecksum);
+				}
 
-		let cs = checksum(&data[0..21]);
-		if &data[21..] != &*cs {
-			return Err(Error::InvalidChecksum);
-		}
+				let mut hash = AddressHash::default();
+				hash.copy_from_slice(&data[1..21]);
 
-		let (network, kind) = match data[0] {
-			0 => (Network::Mainnet, Type::P2PKH),
-			5 => (Network::Mainnet, Type::P2SH),
-			60 => (Network::Komodo, Type::P2PKH),
-			85 => (Network::Komodo, Type::P2SH),
-			111 => (Network::Testnet, Type::P2PKH),
-			196 => (Network::Testnet, Type::P2SH),
+				let address = Address {
+					t_addr_prefix: 0,
+					prefix: data[0],
+					hash,
+				};
+
+				Ok(address)
+			},
+			26 => {
+				let cs = checksum(&data[0..22]);
+				if &data[22..] != &*cs {
+					return Err(Error::InvalidChecksum);
+				}
+
+				let mut hash = AddressHash::default();
+				hash.copy_from_slice(&data[2..22]);
+
+				let address = Address {
+					t_addr_prefix: data[0],
+					prefix: data[1],
+					hash,
+				};
+
+				Ok(address)
+			},
 			_ => return Err(Error::InvalidAddress),
-		};
-
-		let mut hash = AddressHash::default();
-		hash.copy_from_slice(&data[1..21]);
-
-		let address = Address {
-			kind: kind,
-			network: network,
-			hash: hash,
-		};
-
-		Ok(address)
+		}
 	}
 }
 
@@ -125,14 +129,13 @@ impl From<&'static str> for Address {
 
 #[cfg(test)]
 mod tests {
-	use network::Network;
-	use super::{Address, Type};
+	use super::{Address};
 
 	#[test]
 	fn test_address_to_string() {
 		let address = Address {
-			kind: Type::P2PKH,
-			network: Network::Mainnet,
+			prefix: 0,
+			t_addr_prefix: 0,
 			hash: "3f4aa1fedf1f54eeb03b759deadb36676b184911".into(),
 		};
 
@@ -142,8 +145,8 @@ mod tests {
 	#[test]
 	fn test_komodo_address_to_string() {
 		let address = Address {
-			kind: Type::P2PKH,
-			network: Network::Komodo,
+			prefix: 60,
+			t_addr_prefix: 0,
 			hash: "05aab5342166f8594baf17a7d9bef5d567443327".into(),
 		};
 
@@ -151,10 +154,21 @@ mod tests {
 	}
 
 	#[test]
+	fn test_zec_t_address_to_string() {
+		let address = Address {
+			t_addr_prefix: 29,
+			prefix: 37,
+			hash: "05aab5342166f8594baf17a7d9bef5d567443327".into(),
+		};
+
+		assert_eq!("tmAEKD7psc1ajK76QMGEW8WGQSBBHf9SqCp".to_owned(), address.to_string());
+	}
+
+	#[test]
 	fn test_komodo_p2sh_address_to_string() {
 		let address = Address {
-			kind: Type::P2SH,
-			network: Network::Komodo,
+			prefix: 85,
+			t_addr_prefix: 0,
 			hash: "ca0c3786c96ff7dacd40fdb0f7c196528df35f85".into(),
 		};
 
@@ -164,8 +178,8 @@ mod tests {
 	#[test]
 	fn test_address_from_str() {
 		let address = Address {
-			kind: Type::P2PKH,
-			network: Network::Mainnet,
+			prefix: 0,
+			t_addr_prefix: 0,
 			hash: "3f4aa1fedf1f54eeb03b759deadb36676b184911".into(),
 		};
 
@@ -175,8 +189,8 @@ mod tests {
 	#[test]
 	fn test_komodo_address_from_str() {
 		let address = Address {
-			kind: Type::P2PKH,
-			network: Network::Komodo,
+			prefix: 60,
+			t_addr_prefix: 0,
 			hash: "05aab5342166f8594baf17a7d9bef5d567443327".into(),
 		};
 
@@ -184,10 +198,21 @@ mod tests {
 	}
 
 	#[test]
+	fn test_zec_address_from_str() {
+		let address = Address {
+			t_addr_prefix: 29,
+			prefix: 37,
+			hash: "05aab5342166f8594baf17a7d9bef5d567443327".into(),
+		};
+
+		assert_eq!(address, "tmAEKD7psc1ajK76QMGEW8WGQSBBHf9SqCp".into());
+	}
+
+	#[test]
 	fn test_komodo_p2sh_address_from_str() {
 		let address = Address {
-			kind: Type::P2SH,
-			network: Network::Komodo,
+			prefix: 85,
+			t_addr_prefix: 0,
 			hash: "ca0c3786c96ff7dacd40fdb0f7c196528df35f85".into(),
 		};
 

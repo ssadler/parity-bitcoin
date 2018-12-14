@@ -468,7 +468,6 @@ mod tests {
 		let private: Private = "5HusYj2b2x4nroApgfvaSfKYZhRbKFH41bVyPooymbC6KfgSXdD".into();
 		let previous_tx_hash = H256::from_reversed_str("81b4c832d70cb56ff957589752eb4125a4cab78a25a8fc52d6a09e5bd4404d48");
 		let previous_output_index = 0;
-		let from: Address = "1MMMMSUb1piy2ufrSguNUdFmAcvqrQF8M5".into();
 		let to: Address = "1KKKK6N21XKo48zWKuQKXdvSsCf95ibHFa".into();
 		let previous_output = "76a914df3bd30160e6c6145baaf2c88a8844c13a00d1d588ac".into();
 		let current_output: Bytes = "76a914c8e90996c7c6080ee06284600c684ed904d14c5c88ac".into();
@@ -476,8 +475,6 @@ mod tests {
 		let expected_signature_hash = "5fda68729a6312e17e641e9a49fac2a4a6a680126610af573caab270d232f850".into();
 
 		// this is irrelevant
-		let kp = KeyPair::from_private(private).unwrap();
-		assert_eq!(kp.address(), from);
 		assert_eq!(&current_output[3..23], &*to.hash);
 
 		let unsigned_input = UnsignedTransactionInput {

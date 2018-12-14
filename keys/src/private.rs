@@ -8,14 +8,13 @@ use hex::ToHex;
 use base58::{ToBase58, FromBase58};
 use crypto::checksum;
 use hash::H520;
-use network::Network;
 use {Secret, DisplayLayout, Error, Message, Signature, CompactSignature, SECP256K1};
 
-/// Secret with additional network identifier and format type
+/// Secret with additional network prefix and format type
 #[derive(PartialEq)]
 pub struct Private {
-	/// The network on which this key should be used.
-	pub network: Network,
+	/// The network prefix on which this key should be used.
+	pub prefix: u8,
 	/// ECDSA key.
 	pub secret: Secret,
 	/// True if this private key represents a compressed address.
@@ -55,13 +54,7 @@ impl DisplayLayout for Private {
 
 	fn layout(&self) -> Self::Target {
 		let mut result = vec![];
-		let network_byte = match self.network {
-			Network::Mainnet => 128,
-			Network::Komodo => 128,
-			Network::Testnet => 239,
-		};
-
-		result.push(network_byte);
+		result.push(self.prefix);
 		result.extend(&*self.secret);
 		if self.compressed {
 			result.push(1);
@@ -87,19 +80,15 @@ impl DisplayLayout for Private {
 			return Err(Error::InvalidChecksum);
 		}
 
-		let network = match data[0] {
-			128 => Network::Mainnet,
-			239 => Network::Testnet,
-			_ => return Err(Error::InvalidPrivate),
-		};
+		let prefix = data[0];
 
 		let mut secret = Secret::default();
 		secret.copy_from_slice(&data[1..33]);
 
 		let private = Private {
-			network: network,
-			secret: secret,
-			compressed: compressed,
+			prefix,
+			secret,
+			compressed,
 		};
 
 		Ok(private)
@@ -108,7 +97,7 @@ impl DisplayLayout for Private {
 
 impl fmt::Debug for Private {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		try!(writeln!(f, "network: {:?}", self.network));
+		try!(writeln!(f, "prefix: {:?}", self.prefix));
 		try!(writeln!(f, "secret: {}", self.secret.to_hex()));
 		writeln!(f, "compressed: {}", self.compressed)
 	}
@@ -138,13 +127,12 @@ impl From<&'static str> for Private {
 #[cfg(test)]
 mod tests {
 	use hash::H256;
-	use network::Network;
 	use super::Private;
 
 	#[test]
 	fn test_private_to_string() {
 		let private = Private {
-			network: Network::Mainnet,
+			prefix: 128,
 			secret: H256::from_reversed_str("063377054c25f98bc538ac8dd2cf9064dd5d253a725ece0628a34e2f84803bd5"),
 			compressed: false,
 		};
@@ -153,13 +141,35 @@ mod tests {
 	}
 
 	#[test]
+	fn test_private_to_string_kmd() {
+		let private = Private {
+			prefix: 188,
+			secret: H256::from_reversed_str("063377054c25f98bc538ac8dd2cf9064dd5d253a725ece0628a34e2f84803bd5"),
+			compressed: true,
+		};
+
+		assert_eq!("UwA3FpHWKfwrQ1DTiwbErpEnCEhvLuq1WnbfmqGBPSLNNvXtzYd5".to_owned(), private.to_string());
+	}
+
+	#[test]
 	fn test_private_from_str() {
 		let private = Private {
-			network: Network::Mainnet,
+			prefix: 128,
 			secret: H256::from_reversed_str("063377054c25f98bc538ac8dd2cf9064dd5d253a725ece0628a34e2f84803bd5"),
 			compressed: false,
 		};
 
 		assert_eq!(private, "5KSCKP8NUyBZPCCQusxRwgmz9sfvJQEgbGukmmHepWw5Bzp95mu".into());
+	}
+
+	#[test]
+	fn test_private_from_str_kmd() {
+		let private = Private {
+			prefix: 188,
+			secret: H256::from_reversed_str("063377054c25f98bc538ac8dd2cf9064dd5d253a725ece0628a34e2f84803bd5"),
+			compressed: true,
+		};
+
+		assert_eq!(private, "UwA3FpHWKfwrQ1DTiwbErpEnCEhvLuq1WnbfmqGBPSLNNvXtzYd5".into());
 	}
 }

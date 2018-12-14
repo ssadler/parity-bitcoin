@@ -1,5 +1,4 @@
 use rand::os::OsRng;
-use network::Network;
 use {KeyPair, SECP256K1, Error};
 
 pub trait Generator {
@@ -7,13 +6,13 @@ pub trait Generator {
 }
 
 pub struct Random {
-	network: Network
+	prefix: u8,
 }
 
 impl Random {
-	pub fn new(network: Network) -> Self {
+	pub fn new(prefix: u8) -> Self {
 		Random {
-			network: network,
+			prefix,
 		}
 	}
 }
@@ -23,6 +22,6 @@ impl Generator for Random {
 		let context = &SECP256K1;
 		let mut rng = try!(OsRng::new().map_err(|_| Error::FailedKeyGeneration));
 		let (secret, public) = try!(context.generate_keypair(&mut rng));
-		Ok(KeyPair::from_keypair(secret, public, self.network))
+		Ok(KeyPair::from_keypair(secret, public, self.prefix))
 	}
 }

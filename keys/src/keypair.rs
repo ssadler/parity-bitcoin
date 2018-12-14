@@ -3,8 +3,7 @@
 use std::fmt;
 use secp256k1::key;
 use hash::{H264, H520};
-use network::Network;
-use {Public, Error, SECP256K1, Address, Type, Private, Secret};
+use {Public, Error, SECP256K1, Private, Secret};
 
 #[derive(PartialEq)]
 pub struct KeyPair {
@@ -52,14 +51,14 @@ impl KeyPair {
 		};
 
 		let keypair = KeyPair {
-			private: private,
-			public: public,
+			private,
+			public,
 		};
 
 		Ok(keypair)
 	}
 
-	pub fn from_keypair(sec: key::SecretKey, public: key::PublicKey, network: Network) -> Self {
+	pub fn from_keypair(sec: key::SecretKey, public: key::PublicKey, prefix: u8) -> Self {
 		let context = &SECP256K1;
 		let serialized = public.serialize_vec(context, false);
 		let mut secret = Secret::default();
@@ -69,19 +68,11 @@ impl KeyPair {
 
 		KeyPair {
 			private: Private {
-				network: network,
-				secret: secret,
+				prefix,
+				secret,
 				compressed: false,
 			},
 			public: Public::Normal(public),
-		}
-	}
-
-	pub fn address(&self) -> Address {
-		Address {
-			kind: Type::P2PKH,
-			network: self.private.network,
-			hash: self.public.address_hash(),
 		}
 	}
 }
@@ -99,22 +90,12 @@ mod tests {
 	const SECRET_2: &'static str = "5KC4ejrDjv152FGwP386VD1i2NYc5KkfSMyv1nGy1VGDxGHqVY3";
 	const SECRET_1C: &'static str = "Kwr371tjA9u2rFSMZjTNun2PXXP3WPZu2afRHTcta6KxEUdm1vEw";
 	const SECRET_2C: &'static str = "L3Hq7a8FEQwJkW1M2GNKDW28546Vp5miewcCzSqUD9kCAXrJdS3g";
-	const ADDRESS_0: &'static str = "16meyfSoQV6twkAAxPe51RtMVz7PGRmWna";
-	const ADDRESS_1: &'static str = "1QFqqMUD55ZV3PJEJZtaKCsQmjLT6JkjvJ";
-	const ADDRESS_2: &'static str = "1F5y5E5FMc5YzdJtB9hLaUe43GDxEKXENJ";
-	const ADDRESS_1C: &'static str = "1NoJrossxPBKfCHuJXT4HadJrXRE9Fxiqs";
-	const ADDRESS_2C: &'static str = "1CRj2HyM1CXWzHAXLQtiGLyggNT9WQqsDs";
 	const SIGN_1: &'static str = "304402205dbbddda71772d95ce91cd2d14b592cfbc1dd0aabd6a394b6c2d377bbe59d31d022014ddda21494a4e221f0824f0b8b924c43fa43c0ad57dccdaa11f81a6bd4582f6";
 	const SIGN_2: &'static str = "3044022052d8a32079c11e79db95af63bb9600c5b04f21a9ca33dc129c2bfa8ac9dc1cd5022061d8ae5e0f6c1a16bde3719c64c2fd70e404b6428ab9a69566962e8771b5944d";
 	const SIGN_COMPACT_1: &'static str = "1c5dbbddda71772d95ce91cd2d14b592cfbc1dd0aabd6a394b6c2d377bbe59d31d14ddda21494a4e221f0824f0b8b924c43fa43c0ad57dccdaa11f81a6bd4582f6";
 	const SIGN_COMPACT_1C: &'static str = "205dbbddda71772d95ce91cd2d14b592cfbc1dd0aabd6a394b6c2d377bbe59d31d14ddda21494a4e221f0824f0b8b924c43fa43c0ad57dccdaa11f81a6bd4582f6";
 	const SIGN_COMPACT_2: &'static str = "1c52d8a32079c11e79db95af63bb9600c5b04f21a9ca33dc129c2bfa8ac9dc1cd561d8ae5e0f6c1a16bde3719c64c2fd70e404b6428ab9a69566962e8771b5944d";
 	const SIGN_COMPACT_2C: &'static str = "2052d8a32079c11e79db95af63bb9600c5b04f21a9ca33dc129c2bfa8ac9dc1cd561d8ae5e0f6c1a16bde3719c64c2fd70e404b6428ab9a69566962e8771b5944d";
-
-	fn check_addresses(secret: &'static str, address: &'static str) -> bool {
-		let kp = KeyPair::from_private(secret.into()).unwrap();
-		kp.address() == address.into()
-	}
 
 	fn check_compressed(secret: &'static str, compressed: bool) -> bool {
 		let kp = KeyPair::from_private(secret.into()).unwrap();
@@ -145,15 +126,6 @@ mod tests {
 		let signature = kp.private().sign_compact(&message).unwrap();
 		let recovered = Public::recover_compact(&message, &signature).unwrap();
 		kp.public() == &recovered
-	}
-
-	#[test]
-	fn test_keypair_address() {
-		assert!(check_addresses(SECRET_0, ADDRESS_0));
-		assert!(check_addresses(SECRET_1, ADDRESS_1));
-		assert!(check_addresses(SECRET_2, ADDRESS_2));
-		assert!(check_addresses(SECRET_1C, ADDRESS_1C));
-		assert!(check_addresses(SECRET_2C, ADDRESS_2C));
 	}
 
 	#[test]

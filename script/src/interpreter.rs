@@ -2246,11 +2246,11 @@ mod tests {
 
 	#[test]
 	fn test_script_with_forkid_signature() {
-		use keys::{KeyPair, Private, Network};
+		use keys::{KeyPair, Private};
 		use sign::UnsignedTransactionInput;
 		use chain::{OutPoint, TransactionOutput};
 
-		let key_pair = KeyPair::from_private(Private { network: Network::Mainnet, secret: 1.into(), compressed: false, }).unwrap();
+		let key_pair = KeyPair::from_private(Private { prefix: 128, secret: 1.into(), compressed: false, }).unwrap();
 		let redeem_script = Builder::default()
 			.push_data(key_pair.public())
 			.push_opcode(Opcode::OP_CHECKSIG)
