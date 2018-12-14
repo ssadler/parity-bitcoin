@@ -151,6 +151,17 @@ mod tests {
 		assert_eq!("UwA3FpHWKfwrQ1DTiwbErpEnCEhvLuq1WnbfmqGBPSLNNvXtzYd5".to_owned(), private.to_string());
 	}
 
+    #[test]
+	fn test_private_to_string_zec_testnet() {
+		let private = Private {
+			prefix: 239,
+			secret: H256::from_reversed_str("063377054c25f98bc538ac8dd2cf9064dd5d253a725ece0628a34e2f84803bd5"),
+			compressed: true,
+		};
+
+		assert_eq!("cUjCR3fPFWfs6PtdvoinTh4ctPxBvFf5pKNKJzw1RqmfjogL7GuU".to_owned(), private.to_string());
+	}
+
 	#[test]
 	fn test_private_from_str() {
 		let private = Private {
@@ -171,5 +182,16 @@ mod tests {
 		};
 
 		assert_eq!(private, "UwA3FpHWKfwrQ1DTiwbErpEnCEhvLuq1WnbfmqGBPSLNNvXtzYd5".into());
+	}
+
+    #[test]
+	fn test_private_from_str_zec_testnet() {
+		let private = Private {
+			prefix: 239,
+			secret: H256::from_reversed_str("063377054c25f98bc538ac8dd2cf9064dd5d253a725ece0628a34e2f84803bd5"),
+			compressed: true,
+		};
+
+		assert_eq!(private, "cUjCR3fPFWfs6PtdvoinTh4ctPxBvFf5pKNKJzw1RqmfjogL7GuU".into());
 	}
 }
