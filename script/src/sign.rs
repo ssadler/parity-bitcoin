@@ -316,6 +316,8 @@ impl TransactionInputSigner {
 		sighashtype: u32,
 		sighash: Sighash
 	) -> Result<H256, String> {
+		let mut sig_hash_stream = Stream::new();
+
 		let mut personalization = ZCASH_SIG_HASH_PERSONALIZATION.to_vec();
 		// uint32_t leConsensusBranchId = htole32(consensusBranchId);
 		// unsigned char personalization[16] = {};
@@ -330,78 +332,78 @@ impl TransactionInputSigner {
 			return Err("Invalid tx version, don't have the consensus branch id for it".to_owned())
 		}
 
-		let mut sig_hash = blake_2b_256_personal(&personalization);
-
 		let mut header = self.version;
 		if self.overwintered {
 			header |= 1 << 31;
 		}
-		sig_hash.update(&serialize(&header));
-		sig_hash.update(&serialize(&self.version_group_id));
-		let mut prev_out_hash = blake_2b_256_personal(ZCASH_PREVOUTS_HASH_PERSONALIZATION);
+		sig_hash_stream.append(&header);
+		sig_hash_stream.append(&self.version_group_id);
+
+		let mut prev_out_stream = Stream::new();
 		for input in self.inputs.iter() {
-			prev_out_hash.update(&serialize(&input.previous_output));
+			prev_out_stream.append(&input.previous_output);
 		}
-		sig_hash.update(prev_out_hash.finalize().as_bytes());
+		sig_hash_stream.append(&blake_2b_256_personal(&prev_out_stream.out(), ZCASH_PREVOUTS_HASH_PERSONALIZATION));
 
-		let mut sequence_hash = blake_2b_256_personal(ZCASH_SEQUENCE_HASH_PERSONALIZATION);
+		let mut sequence_stream = Stream::new();;
 		for input in self.inputs.iter() {
-			sequence_hash.update(&serialize(&input.sequence));
+			sequence_stream.append(&input.sequence);
 		}
 
-		sig_hash.update(sequence_hash.finalize().as_bytes());
+		sig_hash_stream.append(&blake_2b_256_personal(&sequence_stream.out(), ZCASH_SEQUENCE_HASH_PERSONALIZATION));
 
-		let mut outputs_hash = blake_2b_256_personal(ZCASH_OUTPUTS_HASH_PERSONALIZATION);
+		let mut outputs_stream = Stream::new();;
 		for output in self.outputs.iter() {
-			outputs_hash.update(&serialize(output));
+			outputs_stream.append(output);
 		}
-		sig_hash.update(outputs_hash.finalize().as_bytes());
+
+		sig_hash_stream.append(&blake_2b_256_personal(&outputs_stream.out(), ZCASH_OUTPUTS_HASH_PERSONALIZATION));
 
 		if self.join_splits.len() > 0 {
-			let mut join_splits_hash = blake_2b_256_personal(ZCASH_JOIN_SPLITS_HASH_PERSONALIZATION);
+			let mut join_splits_stream = Stream::new();
 			for split in self.join_splits.iter() {
-				join_splits_hash.update(&serialize(split));
+				join_splits_stream.append(split);
 			}
-			sig_hash.update(join_splits_hash.finalize().as_bytes());
+			sig_hash_stream.append(&blake_2b_256_personal(&join_splits_stream.out(), ZCASH_JOIN_SPLITS_HASH_PERSONALIZATION));
 		} else {
-			sig_hash.update(&[0; 32]);
+			sig_hash_stream.append(&H256::default());
 		}
 
 		if self.shielded_spends.len() > 0 {
-			let mut s_spends_hash = blake_2b_256_personal(ZCASH_SHIELDED_SPENDS_HASH_PERSONALIZATION);
+			let mut s_spends_stream = Stream::new();;
 			for spend in self.shielded_spends.iter() {
-				s_spends_hash.update(&serialize(&spend.cv))
-					.update(&serialize(&spend.anchor))
-					.update(&serialize(&spend.nullifier))
-					.update(&serialize(&spend.rk))
-					.update(&serialize(&spend.zkproof));
+				s_spends_stream.append(&spend.cv)
+					.append(&spend.anchor)
+					.append(&spend.nullifier)
+					.append(&spend.rk)
+					.append(&spend.zkproof);
 			}
-			sig_hash.update(s_spends_hash.finalize().as_bytes());
+			sig_hash_stream.append(&blake_2b_256_personal(&s_spends_stream.out(), ZCASH_SHIELDED_SPENDS_HASH_PERSONALIZATION));
 		} else {
-			sig_hash.update(&[0; 32]);
+			sig_hash_stream.append(&H256::default());
 		}
 
 		if self.shielded_outputs.len() > 0 {
-			let mut s_outputs_hash = blake_2b_256_personal(ZCASH_SHIELDED_OUTPUTS_HASH_PERSONALIZATION);
+			let mut s_outputs_stream = Stream::new();
 			for output in self.shielded_outputs.iter() {
-				s_outputs_hash.update(&serialize(output));
+				s_outputs_stream.append(output);
 			}
-			sig_hash.update(s_outputs_hash.finalize().as_bytes());
+			sig_hash_stream.append(&blake_2b_256_personal(&s_outputs_stream.out(), ZCASH_SHIELDED_OUTPUTS_HASH_PERSONALIZATION));
 		} else {
-			sig_hash.update(&[0; 32]);
+			sig_hash_stream.append(&H256::default());
 		}
 
-		sig_hash.update(&serialize(&self.lock_time));
-		sig_hash.update(&serialize(&self.expiry_height));
-		sig_hash.update(&serialize(&self.value_balance));
-		sig_hash.update(&serialize(&sighashtype));
+		sig_hash_stream.append(&self.lock_time);
+		sig_hash_stream.append(&self.expiry_height);
+		sig_hash_stream.append(&self.value_balance);
+		sig_hash_stream.append(&sighashtype);
 
-		sig_hash.update(&serialize(&self.inputs[input_index].previous_output));
-		sig_hash.update(script_pubkey);
-		sig_hash.update(&serialize(&self.inputs[input_index].amount));
-		sig_hash.update(&serialize(&self.inputs[input_index].sequence));
+		sig_hash_stream.append(&self.inputs[input_index].previous_output);
+		sig_hash_stream.append(&script_pubkey.to_bytes());
+		sig_hash_stream.append(&self.inputs[input_index].amount);
+		sig_hash_stream.append(&self.inputs[input_index].sequence);
 
-		Ok(H256::from(sig_hash.finalize().as_bytes()))
+		Ok(blake_2b_256_personal(&sig_hash_stream.out(), &personalization))
 	}
 }
 
@@ -449,11 +451,15 @@ fn compute_hash_outputs(sighash: Sighash, input_index: usize, outputs: &[Transac
 	}
 }
 
-fn blake_2b_256_personal(personal: &[u8]) -> Blake2bState {
-	Blake2b::new()
+fn blake_2b_256_personal(input: &[u8], personal: &[u8]) -> H256 {
+	H256::from(Blake2b::new()
 		.hash_length(32)
 		.personal(personal)
 		.to_state()
+		.update(input)
+		.finalize()
+		.as_bytes()
+	)
 }
 
 #[cfg(test)]
@@ -549,12 +555,13 @@ mod tests {
 
 	#[test]
 	fn test_blake_2b_personal() {
-		let mut state = blake_2b_256_personal(b"ZcashPrevoutHash");
-		state.update(b"");
-		assert_eq!("d53a633bbecf82fe9e9484d8a0e727c73bb9e68c96e72dec30144f6a84afa136", &state.finalize().to_hex());
+		let mut hash = blake_2b_256_personal(b"", b"ZcashPrevoutHash");
+		assert_eq!(H256::from("d53a633bbecf82fe9e9484d8a0e727c73bb9e68c96e72dec30144f6a84afa136"), hash);
 	}
 
 	// https://github.com/zcash/zips/blob/master/zip-0243.rst#test-vector-3
+	// The preimage and hash in Zcash example are invalid.
+	// scriptCode length should be appended to Input part first but it's not there in example.
 	#[test]
 	fn test_sapling_sig_hash() {
 		let tx: Transaction = "0400008085202f8901a8c685478265f4c14dada651969c45a65e1aeb8cd6791f2f5bb6a1d9952104d9010000006b483045022100a61e5d557568c2ddc1d9b03a7173c6ce7c996c4daecab007ac8f34bee01e6b9702204d38fdc0bcf2728a69fde78462a10fb45a9baa27873e6a5fc45fb5c76764202a01210365ffea3efa3908918a8b8627724af852fc9b86d7375b103ab0543cf418bcaa7ffeffffff02005a6202000000001976a9148132712c3ff19f3a151234616777420a6d7ef22688ac8b959800000000001976a9145453e4698f02a38abdaa521cd1ff2dee6fac187188ac29b0040048b004000000000000000000000000".into();
@@ -569,7 +576,7 @@ mod tests {
 			sig_hash
 		);
 
-		assert_eq!(H256::from("f3148f80dfab5e573d5edfe7a850f5fd39234f80b5429d3a57edcc11e34c585b"), hash.unwrap());
+		assert_eq!(H256::from("f27411aa9bd02879181c763a80bdb6f9ea9158f0de71757e7e12ed17760ebe3f"), hash.unwrap());
 
         let hash = signer.signature_hash(
 			0,
@@ -579,6 +586,33 @@ mod tests {
             1
 		);
 
-		assert_eq!(H256::from("f3148f80dfab5e573d5edfe7a850f5fd39234f80b5429d3a57edcc11e34c585b"), hash);
+		assert_eq!(H256::from("f27411aa9bd02879181c763a80bdb6f9ea9158f0de71757e7e12ed17760ebe3f"), hash);
+	}
+
+	#[test]
+	fn test_sapling_sig_hash_2() {
+		let tx: Transaction = "0400008085202f89012c07a03638d9cf4d2cc837784b3b06aa9a5c8b819f7cb0d373bf711108f4c0f2010000006b483045022100fceec7ffa2686377fa2e13d43aa1d8836c3b5ace5292dd2f65a75befec2660bd02205dc000c13a89975bf3fe85aa9c891fcdea6eb25bd5459ad204fe2946d22e49c3012102031d4256c4bc9f99ac88bf3dba21773132281f65f9bf23a59928bce08961e2f3ffffffff0240420f00000000001976a91405aab5342166f8594baf17a7d9bef5d56744332788ac7c288800000000001976a91405aab5342166f8594baf17a7d9bef5d56744332788ac00000000000000000000000000000000000000".into();
+		let mut signer = TransactionInputSigner::from(tx);
+		signer.inputs[0].amount = 9924260;
+
+		let sig_hash = Sighash::from_u32(SignatureVersion::Base, 1);
+		let hash = signer.signature_hash_overwintered(
+			0,
+			&Script::from("76a91405aab5342166f8594baf17a7d9bef5d56744332788ac"),
+			1,
+			sig_hash
+		);
+
+		assert_eq!(H256::from("047da0d9932545770fc570122c4451b53fadad219650008e5026162e957a46f9"), hash.unwrap());
+
+        let hash = signer.signature_hash(
+			0,
+            0,
+			&Script::from("76a91405aab5342166f8594baf17a7d9bef5d56744332788ac"),
+			SignatureVersion::Base,
+            1
+		);
+
+		assert_eq!(H256::from("047da0d9932545770fc570122c4451b53fadad219650008e5026162e957a46f9"), hash);
 	}
 }
