@@ -313,7 +313,7 @@ impl Serializable for Transaction {
                     }
                 }
 
-                if self.version >= 2 {
+                if self.version == 2 || self.overwintered {
                     stream.append_list(&self.join_splits);
                     if self.join_splits.len() > 0 {
                         stream.append(&self.join_split_pubkey)
@@ -396,7 +396,7 @@ impl Deserializable for Transaction {
 		let mut join_split_pubkey = H256::default();
 		let mut join_split_sig = H512::default();
 
-		if version >= 2 {
+		if version == 2 || overwintered {
 			join_splits = reader.read_list()?;
 			if join_splits.len() > 0 {
 				join_split_pubkey = reader.read()?;
@@ -451,6 +451,20 @@ mod tests {
 		assert_eq!(tx_output.value, 5000000000);
 		assert_eq!(tx_output.script_pubkey, "76a914404371705fa9bd789a2fcd52d2c580b65d35549d88ac".into());
 		assert!(!t.has_witness());
+	}
+
+	#[test]
+	fn test_transaction_reader_v7() {
+		let raw = "0700000001f87575693f4c038018628ff89f64571f0b9b48cd91a09b984d7eb018f4753bfa000000006a47304402202a3c612b11db1be51ae47fc1c23cc73e7fb14f08f10b3e71e5778d7adad494e90220636ca2580324452d8596cea7b2ebc31d796787108a7f74b676e3f136cb2c56b9012102e75e70baceb8cd5ae2bdc893d018512aafc8aac403ae8c14da66fa3ede87fcc3ffffffff0148b6eb0b000000001976a914139df01a608671fcf24db66d2d02bf2d4274e1f888ac00000000";
+		let t: Transaction = raw.into();
+
+		assert_eq!(t.version, 7);
+		assert_eq!(t.lock_time, 0);
+		assert_eq!(t.inputs.len(), 1);
+		assert_eq!(t.outputs.len(), 1);
+
+		let serialized = serialize(&t);
+		assert_eq!(Bytes::from(raw), serialized);
 	}
 
     // https://github.com/zcash/zips/blob/master/zip-0243.rst#test-vector-1
