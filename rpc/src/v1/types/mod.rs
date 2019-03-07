@@ -16,7 +16,7 @@ pub use self::bytes::Bytes;
 pub use self::get_block_response::{GetBlockResponse, VerboseBlock, VerboseBlockClient};
 pub use self::get_tx_out_response::GetTxOutResponse;
 pub use self::get_tx_out_set_info_response::GetTxOutSetInfoResponse;
-pub use self::hash::{H160, H256};
+pub use self::hash::{H160, H256, H264};
 pub use self::script::ScriptType;
 pub use self::transaction::{RawTransaction, Transaction, TransactionInput, TransactionOutput,
 	TransactionOutputWithAddress, TransactionOutputWithScriptData, TransactionInputScript,
