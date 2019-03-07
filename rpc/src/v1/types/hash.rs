@@ -5,13 +5,13 @@ use std::hash::{Hash, Hasher};
 use serde;
 use serde::de::Unexpected;
 use hex::{ToHex, FromHex};
+use primitives::hash::H264 as GlobalH264;
 use primitives::hash::H256 as GlobalH256;
 use primitives::hash::H160 as GlobalH160;
 
 macro_rules! impl_hash {
 	($name: ident, $other: ident, $size: expr) => {
 		/// Hash serialization
-		#[derive(Eq)]
 		pub struct $name([u8; $size]);
 
 		impl Default for $name {
@@ -66,14 +66,6 @@ macro_rules! impl_hash {
 				let self_ref: &[u8] = &self.0;
 				let other_ref: &[u8] = &other.0;
 				self_ref.partial_cmp(other_ref)
-			}
-		}
-
-		impl Ord for $name {
-			fn cmp(&self, other: &Self) -> Ordering {
-				let self_ref: &[u8] = &self.0;
-				let other_ref: &[u8] = &other.0;
-				self_ref.cmp(other_ref)
 			}
 		}
 
@@ -139,6 +131,7 @@ macro_rules! impl_hash {
 	}
 }
 
+impl_hash!(H264, GlobalH264, 33);
 impl_hash!(H256, GlobalH256, 32);
 impl_hash!(H160, GlobalH160, 20);
 
