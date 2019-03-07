@@ -53,13 +53,7 @@ macro_rules! impl_hash {
 			}
 		}
 
-        impl Eq for $name {
-			fn eq(&self, other: &Self) -> bool {
-				let self_ref: &[u8] = &self.0;
-				let other_ref: &[u8] = &other.0;
-				self_ref == other_ref
-			}
-		}
+        impl Eq for $name { }
 
 		impl Ord for $name {
 			fn cmp(&self, other: &Self) -> Ordering {
