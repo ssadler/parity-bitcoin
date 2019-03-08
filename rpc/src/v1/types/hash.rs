@@ -12,7 +12,7 @@ use primitives::hash::H160 as GlobalH160;
 macro_rules! impl_hash {
 	($name: ident, $other: ident, $size: expr) => {
 		/// Hash serialization
-		pub struct $name([u8; $size]);
+		pub struct $name(pub [u8; $size]);
 
 		impl Default for $name {
 			fn default() -> Self {
