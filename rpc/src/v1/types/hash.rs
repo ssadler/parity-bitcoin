@@ -138,6 +138,15 @@ macro_rules! impl_hash {
 				deserializer.deserialize_identifier(HashVisitor)
 			}
 		}
+
+		impl ::core::fmt::LowerHex for $name {
+			fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+				for i in &self.0[..] {
+					write!(f, "{:02x}", i)?;
+				}
+				Ok(())
+			}
+		}
 	}
 }
 

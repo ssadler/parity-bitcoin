@@ -1,3 +1,4 @@
+extern crate core;
 extern crate log;
 extern crate rustc_serialize;
 extern crate serde;

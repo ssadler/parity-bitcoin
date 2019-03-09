@@ -79,6 +79,15 @@ impl ops::Deref for Bytes {
 	}
 }
 
+impl ::core::fmt::LowerHex for Bytes {
+	fn fmt(&self, f: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+		for i in &self.0[..] {
+			write!(f, "{:02x}", i)?;
+		}
+		Ok(())
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
