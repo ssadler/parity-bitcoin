@@ -202,7 +202,7 @@ impl TransactionInputSigner {
 			return 1u8.into();
 		}
 
-        if self.version >= 3 {
+        if self.version >= 3 && self.overwintered {
             return self.signature_hash_overwintered(input_index, script_pubkey, sighashtype, sighash).unwrap();
         }
 
