@@ -485,6 +485,24 @@ mod tests {
         assert_eq!(Bytes::from(raw), serialized);
 	}
 
+	// http://explore.myce.world/api/getrawtransaction?txid=248b2cadff69bb58f3232b914d32588cd9cd014d4f3dc29cd39d1914bf1d7f43&decrypt=0
+	// MYCE has txversion = 3, but no Zcash upgrades
+	#[test]
+	fn test_transaction_serde_tx_version_3_not_overwintered() {
+        let raw = "030000000145f09710b0d6ff73a52bffdd1661f2f001783fb6f947ecf253462359dca19e990100000049483045022100e2f6183e2008e6b0aa31f728f289c66436bf4d4be7aedfe0c3f582e60d16443e0220741548d2cee78a2b39a8e1146b131a69211da025ff0859dba60e38b12a46a0b501ffffffff026c39ea0b000000001976a9142b79bc408688f48858083de027a1b42ed3e39da188ac380265d9450000001976a914066baabb56dc1588afd7fa83e0ffd4729aee89d588ac00000000";
+		let t: Transaction = raw.into();
+		assert_eq!(t.version, 3);
+		assert!(!t.overwintered);
+		assert!(!t.has_witness());
+        assert_eq!(t.inputs.len(), 1);
+        assert_eq!(t.outputs.len(), 2);
+        assert_eq!(t.shielded_spends.len(), 0);
+        assert_eq!(t.shielded_outputs.len(), 0);
+        assert_eq!(t.join_splits.len(), 0);
+        let serialized = serialize(&t);
+        assert_eq!(Bytes::from(raw), serialized);
+	}
+
 	#[test]
 	fn test_transaction_hash() {
 		let t: Transaction = "0100000001a6b97044d03da79c005b20ea9c0e1a6d9dc12d9f7b91a5911c9030a439eed8f5000000004948304502206e21798a42fae0e854281abd38bacd1aeed3ee3738d9e1446618c4571d1090db022100e2ac980643b0b82c0e88ffdfec6b64e3e6ba35e7ba5fdd7d5d6cc8d25c6b241501ffffffff0100f2052a010000001976a914404371705fa9bd789a2fcd52d2c580b65d35549d88ac00000000".into();
