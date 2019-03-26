@@ -1,158 +1,50 @@
-extern crate crypto as rcrypto;
 extern crate primitives;
 extern crate siphasher;
+extern crate ripemd160;
+extern crate sha1;
+extern crate sha2;
 
-pub use rcrypto::digest::Digest;
 use std::hash::Hasher;
-use rcrypto::sha1::Sha1;
-use rcrypto::sha2::Sha256;
-use rcrypto::ripemd160::Ripemd160;
+use ripemd160::Ripemd160;
+use sha1::Sha1;
+use sha2::{Sha256, Digest};
 use siphasher::sip::SipHasher24;
 use primitives::hash::{H32, H160, H256};
-
-pub struct DHash160 {
-	sha256: Sha256,
-	ripemd: Ripemd160,
-}
-
-impl Default for DHash160 {
-	fn default() -> Self {
-		DHash160 {
-			sha256: Sha256::new(),
-			ripemd: Ripemd160::new(),
-		}
-	}
-}
-
-impl DHash160 {
-	pub fn new() -> Self {
-		DHash160::default()
-	}
-}
-
-impl Digest for DHash160 {
-	fn input(&mut self, d: &[u8]) {
-		self.sha256.input(d)
-	}
-
-	fn result(&mut self, out: &mut [u8]) {
-		let mut tmp = [0u8; 32];
-		self.sha256.result(&mut tmp);
-		self.ripemd.input(&tmp);
-		self.ripemd.result(out);
-		self.ripemd.reset();
-	}
-
-	fn reset(&mut self) {
-		self.sha256.reset();
-	}
-
-	fn output_bits(&self) -> usize {
-		160
-	}
-
-	fn block_size(&self) -> usize {
-		64
-	}
-}
-
-pub struct DHash256 {
-	hasher: Sha256,
-}
-
-impl Default for DHash256 {
-	fn default() -> Self {
-		DHash256 {
-			hasher: Sha256::new(),
-		}
-	}
-}
-
-impl DHash256 {
-	pub fn new() -> Self {
-		DHash256::default()
-	}
-
-	pub fn finish(mut self) -> H256 {
-		let mut result = H256::default();
-		self.result(&mut *result);
-		result
-	}
-}
-
-impl Digest for DHash256 {
-	fn input(&mut self, d: &[u8]) {
-		self.hasher.input(d)
-	}
-
-	fn result(&mut self, out: &mut [u8]) {
-		self.hasher.result(out);
-		self.hasher.reset();
-		self.hasher.input(out);
-		self.hasher.result(out);
-	}
-
-	fn reset(&mut self) {
-		self.hasher.reset();
-	}
-
-	fn output_bits(&self) -> usize {
-		256
-	}
-
-	fn block_size(&self) -> usize {
-		64
-	}
-}
 
 /// RIPEMD160
 #[inline]
 pub fn ripemd160(input: &[u8]) -> H160 {
-	let mut result = H160::default();
 	let mut hasher = Ripemd160::new();
 	hasher.input(input);
-	hasher.result(&mut *result);
-	result
+	(*hasher.result()).into()
 }
 
 /// SHA-1
 #[inline]
 pub fn sha1(input: &[u8]) -> H160 {
-	let mut result = H160::default();
-	let mut hasher = Sha1::new();
+	let mut hasher = Sha1::default();
 	hasher.input(input);
-	hasher.result(&mut *result);
-	result
+	(*hasher.result()).into()
 }
 
 /// SHA-256
 #[inline]
 pub fn sha256(input: &[u8]) -> H256 {
-	let mut result = H256::default();
 	let mut hasher = Sha256::new();
 	hasher.input(input);
-	hasher.result(&mut *result);
-	result
+	(*hasher.result()).into()
 }
 
 /// SHA-256 and RIPEMD160
 #[inline]
 pub fn dhash160(input: &[u8]) -> H160 {
-	let mut result = H160::default();
-	let mut hasher = DHash160::new();
-	hasher.input(input);
-	hasher.result(&mut *result);
-	result
+	ripemd160(&*sha256(input))
 }
 
 /// Double SHA-256
 #[inline]
 pub fn dhash256(input: &[u8]) -> H256 {
-	let mut result = H256::default();
-	let mut hasher = DHash256::new();
-	hasher.input(input);
-	hasher.result(&mut *result);
-	result
+	sha256(&*sha256(input))
 }
 
 /// SipHash-2-4
