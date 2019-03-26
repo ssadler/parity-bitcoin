@@ -1,5 +1,4 @@
 extern crate rustc_serialize;
-extern crate heapsize;
 extern crate primitives;
 extern crate bitcrypto as crypto;
 extern crate serialization as ser;

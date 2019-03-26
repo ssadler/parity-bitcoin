@@ -167,8 +167,6 @@ impl_hash!(ZkProofSapling, 192);
 impl_hash!(EncCipherText, 580);
 impl_hash!(CipherText, 601);
 
-known_heap_size!(0, H32, H48, H96, H160, H256, H264, H512, H520);
-
 impl H256 {
 	#[inline]
 	pub fn from_reversed_str(s: &'static str) -> Self {

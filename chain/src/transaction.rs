@@ -2,7 +2,6 @@
 //! https://en.bitcoin.it/wiki/Protocol_documentation#tx
 
 use std::io;
-use heapsize::HeapSizeOf;
 use hex::FromHex;
 use bytes::Bytes;
 use ser::{deserialize, serialize, serialize_with_flags, SERIALIZE_TRANSACTION_WITNESS};
@@ -62,13 +61,6 @@ impl TransactionInput {
 	}
 }
 
-impl HeapSizeOf for TransactionInput {
-	fn heap_size_of_children(&self) -> usize {
-		self.script_sig.heap_size_of_children() +
-			self.script_witness.heap_size_of_children()
-	}
-}
-
 #[derive(Debug, PartialEq, Clone, Serializable, Deserializable)]
 pub struct TransactionOutput {
 	pub value: u64,
@@ -81,12 +73,6 @@ impl Default for TransactionOutput {
 			value: 0xffffffffffffffffu64,
 			script_pubkey: Bytes::default(),
 		}
-	}
-}
-
-impl HeapSizeOf for TransactionOutput {
-	fn heap_size_of_children(&self) -> usize {
-		self.script_pubkey.heap_size_of_children()
 	}
 }
 
@@ -183,12 +169,6 @@ pub struct Transaction {
 impl From<&'static str> for Transaction {
 	fn from(s: &'static str) -> Self {
 		deserialize(&s.from_hex().unwrap() as &[u8]).unwrap()
-	}
-}
-
-impl HeapSizeOf for Transaction {
-	fn heap_size_of_children(&self) -> usize {
-		self.inputs.heap_size_of_children() + self.outputs.heap_size_of_children()
 	}
 }
 

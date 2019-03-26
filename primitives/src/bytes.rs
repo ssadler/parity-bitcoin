@@ -2,7 +2,6 @@
 
 use std::{ops, str, fmt, io, marker};
 use hex::{ToHex, FromHex, FromHexError};
-use heapsize::HeapSizeOf;
 
 /// Wrapper around `Vec<u8>`
 #[derive(Default, PartialEq, Clone, Eq, Hash)]
@@ -31,12 +30,6 @@ impl Bytes {
 
 	pub fn split_off(&mut self, at: usize) -> Bytes {
 		Bytes(self.0.split_off(at))
-	}
-}
-
-impl HeapSizeOf for Bytes {
-	fn heap_size_of_children(&self) -> usize {
-		self.0.heap_size_of_children()
 	}
 }
 

@@ -1,6 +1,4 @@
 extern crate byteorder;
-#[macro_use]
-extern crate heapsize;
 extern crate rustc_serialize;
 pub extern crate bigint;
 
