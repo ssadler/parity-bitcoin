@@ -1,6 +1,6 @@
 //! Compact representation of `U256`
 
-use bigint::{U256, Uint};
+use bigint::{U256};
 
 /// Compact representation of `U256`
 #[derive(Debug, PartialEq, Clone, Copy)]
