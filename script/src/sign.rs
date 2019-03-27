@@ -1,12 +1,12 @@
 //! Transaction signer
 
-use blake2b_simd::{Params as Blake2b, State as Blake2bState};
+use blake2b_simd::{Params as Blake2b};
 use bytes::Bytes;
 use chain::{Transaction, TransactionOutput, OutPoint, TransactionInput, JoinSplit, ShieldedSpend, ShieldedOutput};
 use crypto::dhash256;
 use hash::{H256, H512};
 use keys::KeyPair;
-use ser::{serialize, Stream};
+use ser::{Stream};
 use {Script, Builder};
 
 const ZCASH_PREVOUTS_HASH_PERSONALIZATION: &[u8] = b"ZcashPrevoutHash";
@@ -133,6 +133,7 @@ pub struct TransactionInputSigner {
 	pub join_splits: Vec<JoinSplit>,
 	pub shielded_spends: Vec<ShieldedSpend>,
 	pub shielded_outputs: Vec<ShieldedOutput>,
+	pub zcash: bool,
 }
 
 /// Used for resigning and loading test transactions
@@ -150,6 +151,7 @@ impl From<Transaction> for TransactionInputSigner {
 			join_splits: t.join_splits.clone(),
 			shielded_spends: t.shielded_spends.clone(),
 			shielded_outputs: t.shielded_outputs.clone(),
+			zcash: t.zcash,
 		}
 	}
 }
@@ -264,6 +266,7 @@ impl TransactionInputSigner {
 			shielded_outputs: vec![],
 			value_balance: 0,
 			version_group_id: 0,
+			zcash: self.zcash,
 		};
 
 		let mut stream = Stream::default();
@@ -466,7 +469,7 @@ fn blake_2b_256_personal(input: &[u8], personal: &[u8]) -> H256 {
 mod tests {
 	use bytes::Bytes;
 	use hash::H256;
-	use keys::{KeyPair, Private, Address};
+	use keys::{Private, Address};
 	use chain::{OutPoint, TransactionOutput, Transaction};
 	use script::Script;
 	use super::{Sighash, UnsignedTransactionInput, TransactionInputSigner, SighashBase, SignatureVersion, blake_2b_256_personal};
@@ -514,6 +517,7 @@ mod tests {
 			join_splits: vec![],
 			shielded_spends: vec![],
 			shielded_outputs: vec![],
+			zcash: false,
 		};
 
 		let hash = input_signer.signature_hash(0, 0, &previous_output, SignatureVersion::Base, SighashBase::All.into());
