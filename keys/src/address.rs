@@ -9,7 +9,7 @@ use std::fmt;
 use std::str::FromStr;
 use std::ops::Deref;
 use base58::{ToBase58, FromBase58};
-use crypto::checksum;
+use crypto::{ChecksumType, checksum, dhash256, dgroestl512, keccak256};
 use {DisplayLayout, Error, AddressHash};
 
 /// There are two address formats currently in use.
@@ -35,6 +35,23 @@ pub struct Address {
 	pub t_addr_prefix: u8,
 	/// Public key hash.
 	pub hash: AddressHash,
+	/// Checksum type
+	pub sum_type: ChecksumType,
+}
+
+pub fn detect_checksum(data: &[u8], check_sum: &[u8]) -> Result<ChecksumType, Error> {
+	if check_sum == &dhash256(data)[0..4] {
+		return Ok(ChecksumType::DSHA256)
+	}
+
+	if check_sum == &dgroestl512(data)[0..4] {
+		return Ok(ChecksumType::DGROESTL512)
+	}
+
+	if check_sum == &keccak256(data)[0..4] {
+		return Ok(ChecksumType::KECCAK256)
+	}
+	Err(Error::InvalidChecksum)
 }
 
 pub struct AddressDisplayLayout(Vec<u8>);
@@ -59,7 +76,7 @@ impl DisplayLayout for Address {
 
 		result.push(self.prefix);
 		result.extend_from_slice(&*self.hash);
-		let cs = checksum(&result);
+		let cs = checksum(&result, &self.sum_type);
 		result.extend_from_slice(&*cs);
 
 		AddressDisplayLayout(result)
@@ -68,10 +85,7 @@ impl DisplayLayout for Address {
 	fn from_layout(data: &[u8]) -> Result<Self, Error> where Self: Sized {
 		match data.len() {
 			25 => {
-				let cs = checksum(&data[0..21]);
-				if &data[21..] != &*cs {
-					return Err(Error::InvalidChecksum);
-				}
+				let sum_type = detect_checksum(&data[0..21], &data[21..])?;
 
 				let mut hash = AddressHash::default();
 				hash.copy_from_slice(&data[1..21]);
@@ -80,15 +94,13 @@ impl DisplayLayout for Address {
 					t_addr_prefix: 0,
 					prefix: data[0],
 					hash,
+					sum_type,
 				};
 
 				Ok(address)
 			},
 			26 => {
-				let cs = checksum(&data[0..22]);
-				if &data[22..] != &*cs {
-					return Err(Error::InvalidChecksum);
-				}
+				let sum_type = detect_checksum(&data[0..22], &data[22..])?;
 
 				let mut hash = AddressHash::default();
 				hash.copy_from_slice(&data[2..22]);
@@ -97,6 +109,7 @@ impl DisplayLayout for Address {
 					t_addr_prefix: data[0],
 					prefix: data[1],
 					hash,
+					sum_type,
 				};
 
 				Ok(address)
@@ -129,7 +142,7 @@ impl From<&'static str> for Address {
 
 #[cfg(test)]
 mod tests {
-	use super::{Address};
+	use super::{Address, ChecksumType};
 
 	#[test]
 	fn test_address_to_string() {
@@ -137,6 +150,7 @@ mod tests {
 			prefix: 0,
 			t_addr_prefix: 0,
 			hash: "3f4aa1fedf1f54eeb03b759deadb36676b184911".into(),
+			sum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!("16meyfSoQV6twkAAxPe51RtMVz7PGRmWna".to_owned(), address.to_string());
@@ -148,6 +162,7 @@ mod tests {
 			prefix: 60,
 			t_addr_prefix: 0,
 			hash: "05aab5342166f8594baf17a7d9bef5d567443327".into(),
+			sum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!("R9o9xTocqr6CeEDGDH6mEYpwLoMz6jNjMW".to_owned(), address.to_string());
@@ -159,6 +174,7 @@ mod tests {
 			t_addr_prefix: 29,
 			prefix: 37,
 			hash: "05aab5342166f8594baf17a7d9bef5d567443327".into(),
+			sum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!("tmAEKD7psc1ajK76QMGEW8WGQSBBHf9SqCp".to_owned(), address.to_string());
@@ -170,6 +186,7 @@ mod tests {
 			prefix: 85,
 			t_addr_prefix: 0,
 			hash: "ca0c3786c96ff7dacd40fdb0f7c196528df35f85".into(),
+			sum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!("bX9bppqdGvmCCAujd76Tq76zs1suuPnB9A".to_owned(), address.to_string());
@@ -181,9 +198,11 @@ mod tests {
 			prefix: 0,
 			t_addr_prefix: 0,
 			hash: "3f4aa1fedf1f54eeb03b759deadb36676b184911".into(),
+			sum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!(address, "16meyfSoQV6twkAAxPe51RtMVz7PGRmWna".into());
+		assert_eq!(address.to_string(), "16meyfSoQV6twkAAxPe51RtMVz7PGRmWna".to_owned());
 	}
 
 	#[test]
@@ -192,9 +211,11 @@ mod tests {
 			prefix: 60,
 			t_addr_prefix: 0,
 			hash: "05aab5342166f8594baf17a7d9bef5d567443327".into(),
+			sum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!(address, "R9o9xTocqr6CeEDGDH6mEYpwLoMz6jNjMW".into());
+		assert_eq!(address.to_string(), "R9o9xTocqr6CeEDGDH6mEYpwLoMz6jNjMW".to_owned());
 	}
 
 	#[test]
@@ -203,9 +224,11 @@ mod tests {
 			t_addr_prefix: 29,
 			prefix: 37,
 			hash: "05aab5342166f8594baf17a7d9bef5d567443327".into(),
+			sum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!(address, "tmAEKD7psc1ajK76QMGEW8WGQSBBHf9SqCp".into());
+		assert_eq!(address.to_string(), "tmAEKD7psc1ajK76QMGEW8WGQSBBHf9SqCp".to_owned());
 	}
 
 	#[test]
@@ -214,8 +237,36 @@ mod tests {
 			prefix: 85,
 			t_addr_prefix: 0,
 			hash: "ca0c3786c96ff7dacd40fdb0f7c196528df35f85".into(),
+			sum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!(address, "bX9bppqdGvmCCAujd76Tq76zs1suuPnB9A".into());
+		assert_eq!(address.to_string(), "bX9bppqdGvmCCAujd76Tq76zs1suuPnB9A".to_owned());
+	}
+
+	#[test]
+	fn test_grs_addr_from_str() {
+		let address = Address {
+			prefix: 36,
+			t_addr_prefix: 0,
+			hash: "c3f710deb7320b0efa6edb14e3ebeeb9155fa90d".into(),
+			sum_type: ChecksumType::DGROESTL512,
+		};
+
+		assert_eq!(address, "Fo2tBkpzaWQgtjFUkemsYnKyfvd2i8yTki".into());
+		assert_eq!(address.to_string(), "Fo2tBkpzaWQgtjFUkemsYnKyfvd2i8yTki".to_owned());
+	}
+
+	#[test]
+	fn test_smart_addr_from_str() {
+		let address = Address {
+			prefix: 63,
+			t_addr_prefix: 0,
+			hash: "56bb05aa20f5a80cf84e90e5dab05be331333e27".into(),
+			sum_type: ChecksumType::KECCAK256,
+		};
+
+		assert_eq!(address, "SVCbBs6FvPYxJrYoJc4TdCe47QNCgmTabv".into());
+		assert_eq!(address.to_string(), "SVCbBs6FvPYxJrYoJc4TdCe47QNCgmTabv".to_owned());
 	}
 }

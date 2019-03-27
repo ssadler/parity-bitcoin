@@ -1,15 +1,30 @@
+extern crate groestl;
 extern crate primitives;
 extern crate siphasher;
 extern crate ripemd160;
 extern crate sha1;
 extern crate sha2;
+extern crate sha3;
 
 use std::hash::Hasher;
+use groestl::Groestl512;
 use ripemd160::Ripemd160;
 use sha1::Sha1;
 use sha2::{Sha256, Digest};
+use sha3::{Keccak256};
 use siphasher::sip::SipHasher24;
-use primitives::hash::{H32, H160, H256};
+use primitives::hash::{H32, H160, H256, H512};
+
+/// Enum representing different variants of checksum calculation
+/// Most coins use double sha256
+/// GRS uses double groestl512
+/// SMART uses keccak
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ChecksumType {
+	DSHA256,
+	DGROESTL512,
+	KECCAK256,
+}
 
 /// RIPEMD160
 #[inline]
@@ -35,6 +50,28 @@ pub fn sha256(input: &[u8]) -> H256 {
 	(*hasher.result()).into()
 }
 
+/// Groestl-512
+#[inline]
+pub fn groestl512(input: &[u8]) -> H512 {
+	let mut hasher = Groestl512::new();
+	hasher.input(input);
+	(*hasher.result()).into()
+}
+
+/// Keccak-256
+#[inline]
+pub fn keccak256(input: &[u8]) -> H256 {
+	let mut hasher = Keccak256::new();
+	hasher.input(input);
+	(*hasher.result()).into()
+}
+
+/// Double Keccak-256
+#[inline]
+pub fn dkeccak256(input: &[u8]) -> H256 {
+	keccak256(&*keccak256(input))
+}
+
 /// SHA-256 and RIPEMD160
 #[inline]
 pub fn dhash160(input: &[u8]) -> H160 {
@@ -55,11 +92,21 @@ pub fn siphash24(key0: u64, key1: u64, input: &[u8]) -> u64 {
 	hasher.finish()
 }
 
+/// Double Groestl-512
+#[inline]
+pub fn dgroestl512(input: &[u8]) -> H512 {
+	groestl512(&*groestl512(input))
+}
+
 /// Data checksum
 #[inline]
-pub fn checksum(data: &[u8]) -> H32 {
+pub fn checksum(data: &[u8], sum_type: &ChecksumType) -> H32 {
 	let mut result = H32::default();
-	result.copy_from_slice(&dhash256(data)[0..4]);
+	match sum_type {
+		ChecksumType::DSHA256 => result.copy_from_slice(&dhash256(data)[0..4]),
+		ChecksumType::DGROESTL512 => result.copy_from_slice(&dgroestl512(data)[0..4]),
+		ChecksumType::KECCAK256 => result.copy_from_slice(&keccak256(data)[0..4]),
+	}
 	result
 }
 
@@ -67,6 +114,7 @@ pub fn checksum(data: &[u8]) -> H32 {
 mod tests {
 	use primitives::bytes::Bytes;
 	use super::{ripemd160, sha1, sha256, dhash160, dhash256, siphash24, checksum};
+	use ChecksumType;
 
 	#[test]
 	fn test_ripemd160() {
@@ -117,6 +165,6 @@ mod tests {
 
 	#[test]
 	fn test_checksum() {
-		assert_eq!(checksum(b"hello"), "9595c9df".into());
+		assert_eq!(checksum(b"hello", &ChecksumType::DSHA256), "9595c9df".into());
 	}
 }

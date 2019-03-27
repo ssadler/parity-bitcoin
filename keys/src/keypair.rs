@@ -1,5 +1,6 @@
 //! Bitcoin key pair.
 
+use crypto::ChecksumType;
 use std::fmt;
 use secp256k1::key;
 use hash::{H264, H520};
@@ -71,6 +72,7 @@ impl KeyPair {
 				prefix,
 				secret,
 				compressed: false,
+				sum_type: ChecksumType::DSHA256,
 			},
 			public: Public::Normal(public),
 		}

@@ -1,12 +1,13 @@
 //! Secret with additional network identifier and format type
 
+use address::detect_checksum;
 use std::fmt;
 use std::str::FromStr;
 use secp256k1::key;
 use secp256k1::Message as SecpMessage;
 use hex::ToHex;
 use base58::{ToBase58, FromBase58};
-use crypto::checksum;
+use crypto::{checksum, ChecksumType};
 use hash::H520;
 use {Secret, DisplayLayout, Error, Message, Signature, CompactSignature, SECP256K1};
 
@@ -19,6 +20,8 @@ pub struct Private {
 	pub secret: Secret,
 	/// True if this private key represents a compressed address.
 	pub compressed: bool,
+	/// checksum type
+	pub sum_type: ChecksumType,
 }
 
 impl Private {
@@ -59,7 +62,7 @@ impl DisplayLayout for Private {
 		if self.compressed {
 			result.push(1);
 		}
-		let cs = checksum(&result);
+		let cs = checksum(&result, &self.sum_type);
 		result.extend_from_slice(&*cs);
 		result
 	}
@@ -75,11 +78,7 @@ impl DisplayLayout for Private {
 			return Err(Error::InvalidPrivate);
 		}
 
-		let cs = checksum(&data[0..data.len() - 4]);
-		if &data[data.len() - 4..] != &*cs {
-			return Err(Error::InvalidChecksum);
-		}
-
+		let sum_type = detect_checksum(&data[0..data.len() - 4], &data[data.len() - 4..])?;
 		let prefix = data[0];
 
 		let mut secret = Secret::default();
@@ -89,6 +88,7 @@ impl DisplayLayout for Private {
 			prefix,
 			secret,
 			compressed,
+			sum_type,
 		};
 
 		Ok(private)
@@ -127,7 +127,7 @@ impl From<&'static str> for Private {
 #[cfg(test)]
 mod tests {
 	use hash::H256;
-	use super::Private;
+	use super::{ChecksumType, Private};
 
 	#[test]
 	fn test_private_to_string() {
@@ -135,6 +135,7 @@ mod tests {
 			prefix: 128,
 			secret: H256::from_reversed_str("063377054c25f98bc538ac8dd2cf9064dd5d253a725ece0628a34e2f84803bd5"),
 			compressed: false,
+			sum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!("5KSCKP8NUyBZPCCQusxRwgmz9sfvJQEgbGukmmHepWw5Bzp95mu".to_owned(), private.to_string());
@@ -146,6 +147,7 @@ mod tests {
 			prefix: 188,
 			secret: H256::from_reversed_str("063377054c25f98bc538ac8dd2cf9064dd5d253a725ece0628a34e2f84803bd5"),
 			compressed: true,
+			sum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!("UwA3FpHWKfwrQ1DTiwbErpEnCEhvLuq1WnbfmqGBPSLNNvXtzYd5".to_owned(), private.to_string());
@@ -157,6 +159,7 @@ mod tests {
 			prefix: 239,
 			secret: H256::from_reversed_str("063377054c25f98bc538ac8dd2cf9064dd5d253a725ece0628a34e2f84803bd5"),
 			compressed: true,
+			sum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!("cUjCR3fPFWfs6PtdvoinTh4ctPxBvFf5pKNKJzw1RqmfjogL7GuU".to_owned(), private.to_string());
@@ -168,6 +171,7 @@ mod tests {
 			prefix: 128,
 			secret: H256::from_reversed_str("063377054c25f98bc538ac8dd2cf9064dd5d253a725ece0628a34e2f84803bd5"),
 			compressed: false,
+			sum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!(private, "5KSCKP8NUyBZPCCQusxRwgmz9sfvJQEgbGukmmHepWw5Bzp95mu".into());
@@ -179,6 +183,7 @@ mod tests {
 			prefix: 188,
 			secret: H256::from_reversed_str("063377054c25f98bc538ac8dd2cf9064dd5d253a725ece0628a34e2f84803bd5"),
 			compressed: true,
+			sum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!(private, "UwA3FpHWKfwrQ1DTiwbErpEnCEhvLuq1WnbfmqGBPSLNNvXtzYd5".into());
@@ -190,8 +195,35 @@ mod tests {
 			prefix: 239,
 			secret: H256::from_reversed_str("063377054c25f98bc538ac8dd2cf9064dd5d253a725ece0628a34e2f84803bd5"),
 			compressed: true,
+			sum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!(private, "cUjCR3fPFWfs6PtdvoinTh4ctPxBvFf5pKNKJzw1RqmfjogL7GuU".into());
+	}
+
+	#[test]
+	fn test_private_from_str_grs() {
+		let private = Private {
+			prefix: 128,
+			secret: H256::from_reversed_str("cbc8853bd3617a5fcecfcc97f4a68853481657fc575cf85e04a64a2d1a78f974"),
+			compressed: true,
+			sum_type: ChecksumType::DGROESTL512,
+		};
+
+		assert_eq!(private, "L196QUb5fAcBVvZizvx66ABsU7iVTS4iAz15YEgB8QWY35KfD6ox".into());
+		assert_eq!(private.to_string(), "L196QUb5fAcBVvZizvx66ABsU7iVTS4iAz15YEgB8QWY35KfD6ox".to_owned());
+	}
+
+	#[test]
+	fn test_private_from_str_smart_cash() {
+		let private = Private {
+			prefix: 191,
+			secret: H256::from_reversed_str("48688b0cd9440864b95916f53d6e06cdab5f50dc3abfa74b5c6a176620daa302"),
+			compressed: true,
+			sum_type: ChecksumType::KECCAK256,
+		};
+
+		assert_eq!(private, "VFqZrZNzkJEk29Kzp87J7eXDuQFMh1UsqYcMmi9bfdAZ522nz1mv".into());
+		assert_eq!(private.to_string(), "VFqZrZNzkJEk29Kzp87J7eXDuQFMh1UsqYcMmi9bfdAZ522nz1mv".to_owned());
 	}
 }
