@@ -21,7 +21,7 @@ pub struct Private {
 	/// True if this private key represents a compressed address.
 	pub compressed: bool,
 	/// checksum type
-	pub sum_type: ChecksumType,
+	pub checksum_type: ChecksumType,
 }
 
 impl Private {
@@ -62,7 +62,7 @@ impl DisplayLayout for Private {
 		if self.compressed {
 			result.push(1);
 		}
-		let cs = checksum(&result, &self.sum_type);
+		let cs = checksum(&result, &self.checksum_type);
 		result.extend_from_slice(&*cs);
 		result
 	}
@@ -88,7 +88,7 @@ impl DisplayLayout for Private {
 			prefix,
 			secret,
 			compressed,
-			sum_type,
+            checksum_type: sum_type,
 		};
 
 		Ok(private)
@@ -135,7 +135,7 @@ mod tests {
 			prefix: 128,
 			secret: H256::from_reversed_str("063377054c25f98bc538ac8dd2cf9064dd5d253a725ece0628a34e2f84803bd5"),
 			compressed: false,
-			sum_type: ChecksumType::DSHA256,
+			checksum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!("5KSCKP8NUyBZPCCQusxRwgmz9sfvJQEgbGukmmHepWw5Bzp95mu".to_owned(), private.to_string());
@@ -147,7 +147,7 @@ mod tests {
 			prefix: 188,
 			secret: H256::from_reversed_str("063377054c25f98bc538ac8dd2cf9064dd5d253a725ece0628a34e2f84803bd5"),
 			compressed: true,
-			sum_type: ChecksumType::DSHA256,
+			checksum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!("UwA3FpHWKfwrQ1DTiwbErpEnCEhvLuq1WnbfmqGBPSLNNvXtzYd5".to_owned(), private.to_string());
@@ -159,7 +159,7 @@ mod tests {
 			prefix: 239,
 			secret: H256::from_reversed_str("063377054c25f98bc538ac8dd2cf9064dd5d253a725ece0628a34e2f84803bd5"),
 			compressed: true,
-			sum_type: ChecksumType::DSHA256,
+			checksum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!("cUjCR3fPFWfs6PtdvoinTh4ctPxBvFf5pKNKJzw1RqmfjogL7GuU".to_owned(), private.to_string());
@@ -171,7 +171,7 @@ mod tests {
 			prefix: 128,
 			secret: H256::from_reversed_str("063377054c25f98bc538ac8dd2cf9064dd5d253a725ece0628a34e2f84803bd5"),
 			compressed: false,
-			sum_type: ChecksumType::DSHA256,
+			checksum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!(private, "5KSCKP8NUyBZPCCQusxRwgmz9sfvJQEgbGukmmHepWw5Bzp95mu".into());
@@ -183,7 +183,7 @@ mod tests {
 			prefix: 188,
 			secret: H256::from_reversed_str("063377054c25f98bc538ac8dd2cf9064dd5d253a725ece0628a34e2f84803bd5"),
 			compressed: true,
-			sum_type: ChecksumType::DSHA256,
+			checksum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!(private, "UwA3FpHWKfwrQ1DTiwbErpEnCEhvLuq1WnbfmqGBPSLNNvXtzYd5".into());
@@ -195,7 +195,7 @@ mod tests {
 			prefix: 239,
 			secret: H256::from_reversed_str("063377054c25f98bc538ac8dd2cf9064dd5d253a725ece0628a34e2f84803bd5"),
 			compressed: true,
-			sum_type: ChecksumType::DSHA256,
+			checksum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!(private, "cUjCR3fPFWfs6PtdvoinTh4ctPxBvFf5pKNKJzw1RqmfjogL7GuU".into());
@@ -207,7 +207,7 @@ mod tests {
 			prefix: 128,
 			secret: H256::from_reversed_str("cbc8853bd3617a5fcecfcc97f4a68853481657fc575cf85e04a64a2d1a78f974"),
 			compressed: true,
-			sum_type: ChecksumType::DGROESTL512,
+			checksum_type: ChecksumType::DGROESTL512,
 		};
 
 		assert_eq!(private, "L196QUb5fAcBVvZizvx66ABsU7iVTS4iAz15YEgB8QWY35KfD6ox".into());
@@ -220,7 +220,7 @@ mod tests {
 			prefix: 191,
 			secret: H256::from_reversed_str("48688b0cd9440864b95916f53d6e06cdab5f50dc3abfa74b5c6a176620daa302"),
 			compressed: true,
-			sum_type: ChecksumType::KECCAK256,
+			checksum_type: ChecksumType::KECCAK256,
 		};
 
 		assert_eq!(private, "VFqZrZNzkJEk29Kzp87J7eXDuQFMh1UsqYcMmi9bfdAZ522nz1mv".into());

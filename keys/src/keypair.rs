@@ -72,7 +72,7 @@ impl KeyPair {
 				prefix,
 				secret,
 				compressed: false,
-				sum_type: ChecksumType::DSHA256,
+				checksum_type: ChecksumType::DSHA256,
 			},
 			public: Public::Normal(public),
 		}

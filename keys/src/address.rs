@@ -36,19 +36,19 @@ pub struct Address {
 	/// Public key hash.
 	pub hash: AddressHash,
 	/// Checksum type
-	pub sum_type: ChecksumType,
+	pub checksum_type: ChecksumType,
 }
 
-pub fn detect_checksum(data: &[u8], check_sum: &[u8]) -> Result<ChecksumType, Error> {
-	if check_sum == &dhash256(data)[0..4] {
+pub fn detect_checksum(data: &[u8], checksum: &[u8]) -> Result<ChecksumType, Error> {
+	if checksum == &dhash256(data)[0..4] {
 		return Ok(ChecksumType::DSHA256)
 	}
 
-	if check_sum == &dgroestl512(data)[0..4] {
+	if checksum == &dgroestl512(data)[0..4] {
 		return Ok(ChecksumType::DGROESTL512)
 	}
 
-	if check_sum == &keccak256(data)[0..4] {
+	if checksum == &keccak256(data)[0..4] {
 		return Ok(ChecksumType::KECCAK256)
 	}
 	Err(Error::InvalidChecksum)
@@ -76,7 +76,7 @@ impl DisplayLayout for Address {
 
 		result.push(self.prefix);
 		result.extend_from_slice(&*self.hash);
-		let cs = checksum(&result, &self.sum_type);
+		let cs = checksum(&result, &self.checksum_type);
 		result.extend_from_slice(&*cs);
 
 		AddressDisplayLayout(result)
@@ -94,7 +94,7 @@ impl DisplayLayout for Address {
 					t_addr_prefix: 0,
 					prefix: data[0],
 					hash,
-					sum_type,
+                    checksum_type: sum_type,
 				};
 
 				Ok(address)
@@ -109,7 +109,7 @@ impl DisplayLayout for Address {
 					t_addr_prefix: data[0],
 					prefix: data[1],
 					hash,
-					sum_type,
+                    checksum_type: sum_type,
 				};
 
 				Ok(address)
@@ -150,7 +150,7 @@ mod tests {
 			prefix: 0,
 			t_addr_prefix: 0,
 			hash: "3f4aa1fedf1f54eeb03b759deadb36676b184911".into(),
-			sum_type: ChecksumType::DSHA256,
+			checksum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!("16meyfSoQV6twkAAxPe51RtMVz7PGRmWna".to_owned(), address.to_string());
@@ -162,7 +162,7 @@ mod tests {
 			prefix: 60,
 			t_addr_prefix: 0,
 			hash: "05aab5342166f8594baf17a7d9bef5d567443327".into(),
-			sum_type: ChecksumType::DSHA256,
+			checksum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!("R9o9xTocqr6CeEDGDH6mEYpwLoMz6jNjMW".to_owned(), address.to_string());
@@ -174,7 +174,7 @@ mod tests {
 			t_addr_prefix: 29,
 			prefix: 37,
 			hash: "05aab5342166f8594baf17a7d9bef5d567443327".into(),
-			sum_type: ChecksumType::DSHA256,
+			checksum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!("tmAEKD7psc1ajK76QMGEW8WGQSBBHf9SqCp".to_owned(), address.to_string());
@@ -186,7 +186,7 @@ mod tests {
 			prefix: 85,
 			t_addr_prefix: 0,
 			hash: "ca0c3786c96ff7dacd40fdb0f7c196528df35f85".into(),
-			sum_type: ChecksumType::DSHA256,
+			checksum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!("bX9bppqdGvmCCAujd76Tq76zs1suuPnB9A".to_owned(), address.to_string());
@@ -198,7 +198,7 @@ mod tests {
 			prefix: 0,
 			t_addr_prefix: 0,
 			hash: "3f4aa1fedf1f54eeb03b759deadb36676b184911".into(),
-			sum_type: ChecksumType::DSHA256,
+			checksum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!(address, "16meyfSoQV6twkAAxPe51RtMVz7PGRmWna".into());
@@ -211,7 +211,7 @@ mod tests {
 			prefix: 60,
 			t_addr_prefix: 0,
 			hash: "05aab5342166f8594baf17a7d9bef5d567443327".into(),
-			sum_type: ChecksumType::DSHA256,
+			checksum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!(address, "R9o9xTocqr6CeEDGDH6mEYpwLoMz6jNjMW".into());
@@ -224,7 +224,7 @@ mod tests {
 			t_addr_prefix: 29,
 			prefix: 37,
 			hash: "05aab5342166f8594baf17a7d9bef5d567443327".into(),
-			sum_type: ChecksumType::DSHA256,
+			checksum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!(address, "tmAEKD7psc1ajK76QMGEW8WGQSBBHf9SqCp".into());
@@ -237,7 +237,7 @@ mod tests {
 			prefix: 85,
 			t_addr_prefix: 0,
 			hash: "ca0c3786c96ff7dacd40fdb0f7c196528df35f85".into(),
-			sum_type: ChecksumType::DSHA256,
+			checksum_type: ChecksumType::DSHA256,
 		};
 
 		assert_eq!(address, "bX9bppqdGvmCCAujd76Tq76zs1suuPnB9A".into());
@@ -250,7 +250,7 @@ mod tests {
 			prefix: 36,
 			t_addr_prefix: 0,
 			hash: "c3f710deb7320b0efa6edb14e3ebeeb9155fa90d".into(),
-			sum_type: ChecksumType::DGROESTL512,
+			checksum_type: ChecksumType::DGROESTL512,
 		};
 
 		assert_eq!(address, "Fo2tBkpzaWQgtjFUkemsYnKyfvd2i8yTki".into());
@@ -263,7 +263,7 @@ mod tests {
 			prefix: 63,
 			t_addr_prefix: 0,
 			hash: "56bb05aa20f5a80cf84e90e5dab05be331333e27".into(),
-			sum_type: ChecksumType::KECCAK256,
+			checksum_type: ChecksumType::KECCAK256,
 		};
 
 		assert_eq!(address, "SVCbBs6FvPYxJrYoJc4TdCe47QNCgmTabv".into());
