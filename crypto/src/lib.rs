@@ -19,7 +19,7 @@ use primitives::hash::{H32, H160, H256, H512};
 /// Most coins use double sha256
 /// GRS uses double groestl512
 /// SMART uses keccak
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ChecksumType {
 	DSHA256,
 	DGROESTL512,
