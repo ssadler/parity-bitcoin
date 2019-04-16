@@ -419,8 +419,9 @@ impl Deserializable for Transaction {
 #[cfg(test)]
 mod tests {
 	use hash::{H256, H512};
-	use ser::{Serializable, serialize, serialize_with_flags, SERIALIZE_TRANSACTION_WITNESS};
+	use ser::{Serializable, serialize, deserialize, serialize_with_flags, SERIALIZE_TRANSACTION_WITNESS};
 	use super::{Transaction, TransactionInput, OutPoint, TransactionOutput, Bytes};
+	use hex::ToHex;
 
 	// real transaction from block 80000
 	// https://blockchain.info/rawtx/5a4ebf66822b0b2d56bd9dc64ece0bc38ee7844a23ff1d7320a88c5fdb2ad3e2
@@ -532,6 +533,28 @@ mod tests {
         assert_eq!(t.join_splits.len(), 0);
         let serialized = serialize(&t);
         assert_eq!(Bytes::from(raw), serialized);
+	}
+
+	// https://chainz.cryptoid.info/ecc/tx.dws?816906122e12c5b56a38f169aa2bdccb1e90f4e0d78a3777b60b262883132602.htm
+	// Deserialization of this ECC transaction failed
+	// there's an additional 4 bytes of data "between" the versions and inputs: 46fea85c
+	// Stop ignoring the test when purpose and possible values of this data is known
+	#[test]
+	#[ignore]
+	fn test_transaction_serde_ecc() {
+		let bytes: Vec<u8> = vec![1, 0, 0, 0, 70, 254, 168, 92, 1, 170, 99, 80, 219, 121, 123, 10, 150, 232, 96, 154, 102, 242, 208, 96, 100, 59, 114, 52, 38, 97, 143, 194, 239, 6, 154, 4, 232, 82, 124, 189, 240, 0, 0, 0, 0, 106, 71, 48, 68, 2, 32, 75, 18, 92, 56, 109, 69, 254, 77, 185, 43, 157, 13, 166, 30, 129, 30, 185, 72, 161, 125, 37, 134, 120, 218, 213, 146, 229, 8, 117, 133, 164, 38, 2, 32, 40, 91, 86, 89, 107, 96, 15, 202, 12, 124, 168, 252, 75, 139, 191, 93, 216, 144, 212, 58, 159, 166, 64, 202, 72, 155, 182, 222, 42, 140, 167, 128, 1, 33, 3, 148, 13, 224, 176, 222, 92, 35, 122, 18, 78, 113, 66, 51, 158, 172, 225, 229, 41, 119, 44, 212, 117, 176, 232, 66, 250, 100, 75, 202, 254, 73, 204, 254, 255, 255, 255, 2, 193, 198, 45, 0, 0, 0, 0, 0, 25, 118, 169, 20, 131, 5, 22, 126, 249, 90, 27, 30, 154, 205, 246, 52, 167, 104, 108, 183, 105, 147, 64, 106, 136, 172, 127, 132, 30, 0, 0, 0, 0, 0, 25, 118, 169, 20, 195, 247, 16, 222, 183, 50, 11, 14, 250, 110, 219, 20, 227, 235, 238, 185, 21, 95, 169, 13, 136, 172, 238, 100, 32, 0];
+		println!("Tx bytes hex {}", bytes.to_hex());
+		let t: Transaction = deserialize(bytes.as_slice()).unwrap();
+		assert_eq!(t.version, 1);
+		assert!(!t.overwintered);
+		assert!(!t.has_witness());
+        assert_eq!(t.inputs.len(), 1);
+        assert_eq!(t.outputs.len(), 2);
+        assert_eq!(t.shielded_spends.len(), 0);
+        assert_eq!(t.shielded_outputs.len(), 0);
+        assert_eq!(t.join_splits.len(), 0);
+        let serialized = serialize(&t);
+        assert_eq!(Bytes::from(bytes), serialized);
 	}
 
 	#[test]
