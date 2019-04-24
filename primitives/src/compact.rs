@@ -95,7 +95,7 @@ impl Compact {
 
 #[cfg(test)]
 mod tests {
-	use bigint::{U256, Uint};
+	use bigint::{U256};
 	use super::Compact;
 
 	#[test]

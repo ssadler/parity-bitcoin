@@ -76,8 +76,7 @@ pub struct TransactionOutputScript {
 	#[serde(rename = "type")]
 	pub script_type: ScriptType,
 	/// Array of bitcoin addresses
-	#[serde(with = "types::address::vec")]
-	pub addresses: Vec<Address>,
+	pub addresses: Vec<String>,
 }
 
 /// Signed transaction input
