@@ -6,7 +6,7 @@ use secp256k1::key;
 use hash::{H264, H520};
 use {Public, Error, SECP256K1, Private, Secret};
 
-#[derive(PartialEq)]
+#[derive(Default, PartialEq)]
 pub struct KeyPair {
 	private: Private,
 	public: Public,

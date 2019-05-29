@@ -14,6 +14,12 @@ pub enum Public {
 	Compressed(H264),
 }
 
+impl Default for Public {
+	fn default() -> Public {
+		Public::Compressed(H264::default())
+	}
+}
+
 impl Public {
 	pub fn from_slice(data: &[u8]) -> Result<Self, Error> {
 		match data.len() {

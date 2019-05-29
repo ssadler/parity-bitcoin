@@ -12,7 +12,7 @@ use hash::H520;
 use {Secret, DisplayLayout, Error, Message, Signature, CompactSignature, SECP256K1};
 
 /// Secret with additional network prefix and format type
-#[derive(PartialEq)]
+#[derive(Default, PartialEq)]
 pub struct Private {
 	/// The network prefix on which this key should be used.
 	pub prefix: u8,

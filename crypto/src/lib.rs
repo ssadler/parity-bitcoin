@@ -26,6 +26,12 @@ pub enum ChecksumType {
 	KECCAK256,
 }
 
+impl Default for ChecksumType {
+	fn default() -> ChecksumType {
+		ChecksumType::DSHA256
+	}
+}
+
 /// RIPEMD160
 #[inline]
 pub fn ripemd160(input: &[u8]) -> H160 {
