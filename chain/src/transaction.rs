@@ -557,6 +557,24 @@ mod tests {
         assert_eq!(Bytes::from(bytes), serialized);
 	}
 
+	// https://kmdexplorer.io/tx/88893f05764f5a781f2e555a5b492c064f2269a4a44c51afdbe98fab54361bb5
+	// KMD transaction having opreturn output
+	#[test]
+	fn test_kmd_transaction_with_opreturn_output() {
+		let raw = "0100000001ebca38fa14b1ec029c3e08a2e87940c1f796b1588674b4c386f09626ee702576010000006a4730440220070963b9460d9bafe7865563574594fc3f823e5cdf7c49a5642dade76502547f022023fd90d41e34e514237f4b5967f83c9af27673d6de2eae3d88079a988fa5be3e012103668e3368c9fb67d8fc808a5fe74d5a8d21b6eed726838122d5f7716fb3328998ffffffff03e87006060000000017a914fef59ae800bb89050d25f67be432b231097e1849878758c100000000001976a91473122bcec852f394e51496e39fca5111c3d7ae5688ac00000000000000000a6a08303764643135633400000000";
+		let t: Transaction = raw.into();
+		assert_eq!(t.version, 1);
+		assert!(!t.overwintered);
+		assert!(!t.has_witness());
+		assert_eq!(t.inputs.len(), 1);
+		assert_eq!(t.outputs.len(), 3);
+		assert_eq!(t.shielded_spends.len(), 0);
+		assert_eq!(t.shielded_outputs.len(), 0);
+		assert_eq!(t.join_splits.len(), 0);
+		let serialized = serialize(&t);
+		assert_eq!(Bytes::from(raw), serialized);
+	}
+
 	#[test]
 	fn test_transaction_hash() {
 		let t: Transaction = "0100000001a6b97044d03da79c005b20ea9c0e1a6d9dc12d9f7b91a5911c9030a439eed8f5000000004948304502206e21798a42fae0e854281abd38bacd1aeed3ee3738d9e1446618c4571d1090db022100e2ac980643b0b82c0e88ffdfec6b64e3e6ba35e7ba5fdd7d5d6cc8d25c6b241501ffffffff0100f2052a010000001976a914404371705fa9bd789a2fcd52d2c580b65d35549d88ac00000000".into();

@@ -71,11 +71,13 @@ pub struct TransactionOutputScript {
 	pub hex: Bytes,
 	/// Number of required signatures
 	#[serde(rename = "reqSigs")]
+	#[serde(default)]
 	pub req_sigs: u32,
 	/// Type of script
 	#[serde(rename = "type")]
 	pub script_type: ScriptType,
 	/// Array of bitcoin addresses
+	#[serde(default)]
 	pub addresses: Vec<String>,
 }
 
@@ -364,9 +366,9 @@ mod tests {
 				hex: Bytes::new(vec![1, 2, 3, 4]),
 			},
 			sequence: 123,
-			txinwitness: vec![],
+			txinwitness: None,
 		};
-		assert_eq!(serde_json::to_string(&txin).unwrap(), r#"{"txid":"4d00000000000000000000000000000000000000000000000000000000000000","vout":13,"script_sig":{"asm":"Hello, world!!!","hex":"01020304"},"sequence":123,"txinwitness":[]}"#);
+		assert_eq!(serde_json::to_string(&txin).unwrap(), r#"{"txid":"4d00000000000000000000000000000000000000000000000000000000000000","vout":13,"scriptSig":{"asm":"Hello, world!!!","hex":"01020304"},"sequence":123,"txinwitness":null}"#);
 	}
 
 	#[test]
@@ -379,10 +381,10 @@ mod tests {
 				hex: Bytes::new(vec![1, 2, 3, 4]),
 			},
 			sequence: 123,
-			txinwitness: vec![],
+			txinwitness: Some(vec![]),
 		};
 		assert_eq!(
-			serde_json::from_str::<SignedTransactionInput>(r#"{"txid":"4d00000000000000000000000000000000000000000000000000000000000000","vout":13,"script_sig":{"asm":"Hello, world!!!","hex":"01020304"},"sequence":123,"txinwitness":[]}"#).unwrap(),
+			serde_json::from_str::<SignedTransactionInput>(r#"{"txid":"4d00000000000000000000000000000000000000000000000000000000000000","vout":13,"scriptSig":{"asm":"Hello, world!!!","hex":"01020304"},"sequence":123,"txinwitness":[]}"#).unwrap(),
 			txin);
 	}
 
@@ -425,9 +427,9 @@ mod tests {
 		let tx = Transaction {
 			hex: "DEADBEEF".into(),
 			txid: H256::from(4),
-			hash: H256::from(5),
-			size: 33,
-			vsize: 44,
+			hash: Some(H256::from(5)),
+			size: Some(33),
+			vsize: Some(44),
 			version: 55,
 			locktime: 66,
 			vin: vec![],
@@ -436,8 +438,9 @@ mod tests {
 			confirmations: 77,
 			time: 88,
 			blocktime: 99,
+			height: 0,
 		};
-		assert_eq!(serde_json::to_string(&tx).unwrap(), r#"{"hex":"deadbeef","txid":"0400000000000000000000000000000000000000000000000000000000000000","hash":"0500000000000000000000000000000000000000000000000000000000000000","size":33,"vsize":44,"version":55,"locktime":66,"vin":[],"vout":[],"blockhash":"0600000000000000000000000000000000000000000000000000000000000000","confirmations":77,"time":88,"blocktime":99}"#);
+		assert_eq!(serde_json::to_string(&tx).unwrap(), r#"{"hex":"deadbeef","txid":"0400000000000000000000000000000000000000000000000000000000000000","hash":"0500000000000000000000000000000000000000000000000000000000000000","size":33,"vsize":44,"version":55,"locktime":66,"vin":[],"vout":[],"blockhash":"0600000000000000000000000000000000000000000000000000000000000000","confirmations":77,"time":88,"blocktime":99,"height":0}"#);
 	}
 
 	#[test]
@@ -445,9 +448,9 @@ mod tests {
 		let tx = Transaction {
 			hex: "DEADBEEF".into(),
 			txid: H256::from(4),
-			hash: H256::from(5),
-			size: 33,
-			vsize: 44,
+			hash: Some(H256::from(5)),
+			size: Some(33),
+			vsize: Some(44),
 			version: 55,
 			locktime: 66,
 			vin: vec![],
@@ -456,9 +459,88 @@ mod tests {
 			confirmations: 77,
 			time: 88,
 			blocktime: 99,
+			height: 0,
 		};
 		assert_eq!(
 			serde_json::from_str::<Transaction>(r#"{"hex":"deadbeef","txid":"0400000000000000000000000000000000000000000000000000000000000000","hash":"0500000000000000000000000000000000000000000000000000000000000000","size":33,"vsize":44,"version":55,"locktime":66,"vin":[],"vout":[],"blockhash":"0600000000000000000000000000000000000000000000000000000000000000","confirmations":77,"time":88,"blocktime":99}"#).unwrap(),
 			tx);
+	}
+
+	#[test]
+	// https://kmdexplorer.io/tx/88893f05764f5a781f2e555a5b492c064f2269a4a44c51afdbe98fab54361bb5
+	fn test_kmd_json_transaction_parse_fail() {
+		let tx_str = r#"{
+			"hex":"0100000001ebca38fa14b1ec029c3e08a2e87940c1f796b1588674b4c386f09626ee702576010000006a4730440220070963b9460d9bafe7865563574594fc3f823e5cdf7c49a5642dade76502547f022023fd90d41e34e514237f4b5967f83c9af27673d6de2eae3d88079a988fa5be3e012103668e3368c9fb67d8fc808a5fe74d5a8d21b6eed726838122d5f7716fb3328998ffffffff03e87006060000000017a914fef59ae800bb89050d25f67be432b231097e1849878758c100000000001976a91473122bcec852f394e51496e39fca5111c3d7ae5688ac00000000000000000a6a08303764643135633400000000",
+			"txid":"88893f05764f5a781f2e555a5b492c064f2269a4a44c51afdbe98fab54361bb5",
+			"overwintered":false,
+			"version":1,
+			"last_notarized_height":1415230,
+			"locktime":0,
+			"vin":[
+				{
+					"txid":"762570ee2696f086c3b4748658b196f7c14079e8a2083e9c02ecb114fa38caeb",
+					"vout":1,
+					"address":"RKmdZ8QA7XbJ4JGUAvtHtWEogKxfgaQuqv",
+					"scriptSig":{
+					"asm":"30440220070963b9460d9bafe7865563574594fc3f823e5cdf7c49a5642dade76502547f022023fd90d41e34e514237f4b5967f83c9af27673d6de2eae3d88079a988fa5be3e[ALL] 03668e3368c9fb67d8fc808a5fe74d5a8d21b6eed726838122d5f7716fb3328998",
+					"hex":"4730440220070963b9460d9bafe7865563574594fc3f823e5cdf7c49a5642dade76502547f022023fd90d41e34e514237f4b5967f83c9af27673d6de2eae3d88079a988fa5be3e012103668e3368c9fb67d8fc808a5fe74d5a8d21b6eed726838122d5f7716fb3328998"
+				},
+					"value":1.13766527,
+					"valueSat":113766527,
+					"sequence":4294967295
+				}
+			],
+			"vout":[
+				{
+					"value":1.01085416,
+					"valueSat":101085416,
+					"n":0,
+					"scriptPubKey":{
+					"asm":"OP_HASH160 fef59ae800bb89050d25f67be432b231097e1849 OP_EQUAL",
+					"hex":"a914fef59ae800bb89050d25f67be432b231097e184987",
+					"reqSigs":1,
+					"type":"scripthash",
+					"addresses":[
+						"bbyNYu11Qs3PowiPr1Su4ozQk7hsVmv821"
+					]
+				}
+				},
+				{
+					"value":0.12671111,
+					"valueSat":12671111,
+					"n":1,
+					"scriptPubKey":{
+					"asm":"OP_DUP OP_HASH160 73122bcec852f394e51496e39fca5111c3d7ae56 OP_EQUALVERIFY OP_CHECKSIG",
+					"hex":"76a91473122bcec852f394e51496e39fca5111c3d7ae5688ac",
+					"reqSigs":1,
+					"type":"pubkeyhash",
+					"addresses":[
+						"RKmdZ8QA7XbJ4JGUAvtHtWEogKxfgaQuqv"
+					]
+				}
+				},
+				{
+					"value":0.0,
+					"valueSat":0,
+					"n":2,
+					"scriptPubKey":{
+					"asm":"OP_RETURN 3037646431356334",
+					"hex":"6a083037646431356334",
+					"type":"nulldata"
+				}
+				}
+			],
+			"vjoinsplit":[
+
+			],
+			"blockhash":"086c0807a67d8411743f7eaf0a687721eadaa6c8190dfd36f4de9d939c796e82",
+			"height":865648,
+			"confirmations":549608,
+			"rawconfirmations":549608,
+			"time":1528215344,
+			"blocktime":1528215344
+		}"#;
+
+		let _tx: Transaction = serde_json::from_str(tx_str).unwrap();
 	}
 }
