@@ -1,6 +1,5 @@
 //! Bitcoin keys.
 
-extern crate rand;
 extern crate rustc_hex as hex;
 #[macro_use]
 extern crate lazy_static;
@@ -9,7 +8,6 @@ extern crate secp256k1;
 extern crate bitcrypto as crypto;
 extern crate primitives;
 
-pub mod generator;
 mod address;
 mod display;
 mod keypair;
