@@ -86,7 +86,7 @@ impl Builder {
 			self.data.push(Opcode::OP_PUSHDATA2 as u8);
 			self.data.push(len as u8);
 			self.data.push((len >> 8) as u8);
-		} else if len < 0x1_0000_0000 {
+		} else if (len as i64) < 0x1_0000_0000 {
 			self.data.push(Opcode::OP_PUSHDATA4 as u8);
 			self.data.push(len as u8);
 			self.data.push((len >> 8) as u8);
