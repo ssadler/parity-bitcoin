@@ -3,13 +3,11 @@
 use address::detect_checksum;
 use std::fmt;
 use std::str::FromStr;
-use secp256k1::key;
-use secp256k1::Message as SecpMessage;
+use secp256k1::{Message as SecpMessage, SecretKey, sign};
 use hex::ToHex;
 use base58::{ToBase58, FromBase58};
 use crypto::{checksum, ChecksumType};
-use hash::H520;
-use {Secret, DisplayLayout, Error, Message, Signature, CompactSignature, SECP256K1};
+use {Secret, DisplayLayout, Error, Message, Signature};
 
 /// Secret with additional network prefix and format type
 #[derive(Default, PartialEq)]
@@ -26,29 +24,11 @@ pub struct Private {
 
 impl Private {
 	pub fn sign(&self, message: &Message) -> Result<Signature, Error> {
-		let context = &SECP256K1;
-		let secret = try!(key::SecretKey::from_slice(context, &*self.secret));
-		let message = try!(SecpMessage::from_slice(&**message));
-		let signature = try!(context.sign(&message, &secret));
-		let data = signature.serialize_der(context);
-		Ok(data.into())
-	}
-
-	pub fn sign_compact(&self, message: &Message) -> Result<CompactSignature, Error> {
-		let context = &SECP256K1;
-		let secret = try!(key::SecretKey::from_slice(context, &*self.secret));
-		let message = try!(SecpMessage::from_slice(&**message));
-		let signature = try!(context.sign_recoverable(&message, &secret));
-		let (recovery_id, data) = signature.serialize_compact(context);
-		let recovery_id = recovery_id.to_i32() as u8;
-		let mut signature = H520::default();
-		signature[1..65].copy_from_slice(&data[0..64]);
-		if self.compressed {
-			signature[0] = 27 + recovery_id + 4;
-		} else {
-			signature[0] = 27 + recovery_id;
-		}
-		Ok(signature.into())
+		let secret = SecretKey::parse_slice(&*self.secret)?;
+		let message = SecpMessage::parse_slice(&**message)?;
+		let (signature, _) = sign(&message, &secret)?;
+		let data = signature.serialize_der();
+		Ok(data.as_ref().to_vec().into())
 	}
 }
 

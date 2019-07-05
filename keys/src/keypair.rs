@@ -2,9 +2,9 @@
 
 use crypto::ChecksumType;
 use std::fmt;
-use secp256k1::key;
+use secp256k1::{SecretKey, PublicKey};
 use hash::{H264, H520};
-use {Public, Error, SECP256K1, Private, Secret};
+use {Public, Error, Private, Secret};
 
 #[derive(Default, PartialEq)]
 pub struct KeyPair {
@@ -36,17 +36,17 @@ impl KeyPair {
 	}
 
 	pub fn from_private(private: Private) -> Result<KeyPair, Error> {
-		let context = &SECP256K1;
-		let s: key::SecretKey = try!(key::SecretKey::from_slice(context, &*private.secret));
-		let pub_key = try!(key::PublicKey::from_secret_key(context, &s));
-		let serialized = pub_key.serialize_vec(context, private.compressed);
+		let s: SecretKey = SecretKey::parse_slice(&*private.secret)?;
+		let pub_key = PublicKey::from_secret_key(&s);
 
 		let public = if private.compressed {
 			let mut public = H264::default();
+			let serialized = pub_key.serialize_compressed();
 			public.copy_from_slice(&serialized[0..33]);
 			Public::Compressed(public)
 		} else {
 			let mut public = H520::default();
+			let serialized = pub_key.serialize();
 			public.copy_from_slice(&serialized[0..65]);
 			Public::Normal(public)
 		};
@@ -59,11 +59,10 @@ impl KeyPair {
 		Ok(keypair)
 	}
 
-	pub fn from_keypair(sec: key::SecretKey, public: key::PublicKey, prefix: u8) -> Self {
-		let context = &SECP256K1;
-		let serialized = public.serialize_vec(context, false);
+	pub fn from_keypair(sec: SecretKey, public: PublicKey, prefix: u8) -> Self {
+		let serialized = public.serialize();
 		let mut secret = Secret::default();
-		secret.copy_from_slice(&sec[0..32]);
+		secret.copy_from_slice(&sec.serialize());
 		let mut public = H520::default();
 		public.copy_from_slice(&serialized[0..65]);
 
@@ -82,7 +81,6 @@ impl KeyPair {
 #[cfg(test)]
 mod tests {
 	use crypto::dhash256;
-	use Public;
 	use super::KeyPair;
 
 	/// Tests from:
@@ -116,20 +114,6 @@ mod tests {
 		kp.public().verify(&message, &signature.into()).unwrap()
 	}
 
-	fn check_sign_compact(secret: &'static str, raw_message: &[u8], signature: &'static str) -> bool {
-		let message = dhash256(raw_message);
-		let kp = KeyPair::from_private(secret.into()).unwrap();
-		kp.private().sign_compact(&message).unwrap() == signature.into()
-	}
-
-	fn check_recover_compact(secret: &'static str, raw_message: &[u8]) -> bool {
-		let message = dhash256(raw_message);
-		let kp = KeyPair::from_private(secret.into()).unwrap();
-		let signature = kp.private().sign_compact(&message).unwrap();
-		let recovered = Public::recover_compact(&message, &signature).unwrap();
-		kp.public() == &recovered
-	}
-
 	#[test]
 	fn test_keypair_is_compressed() {
 		assert!(check_compressed(SECRET_0, false));
@@ -157,25 +141,5 @@ mod tests {
 		assert!(check_verify(SECRET_2, message, SIGN_2));
 		assert!(check_verify(SECRET_2C, message, SIGN_2));
 		assert!(!check_verify(SECRET_2C, b"", SIGN_2));
-	}
-
-	#[test]
-	fn test_sign_compact() {
-		let message = b"Very deterministic message";
-		assert!(check_sign_compact(SECRET_1, message, SIGN_COMPACT_1));
-		assert!(check_sign_compact(SECRET_1C, message, SIGN_COMPACT_1C));
-		assert!(check_sign_compact(SECRET_2, message, SIGN_COMPACT_2));
-		assert!(check_sign_compact(SECRET_2C, message, SIGN_COMPACT_2C));
-		assert!(!check_sign_compact(SECRET_2C, b"", SIGN_COMPACT_2C));
-	}
-
-	#[test]
-	fn test_recover_compact() {
-		let message = b"Very deterministic message";
-		assert!(check_recover_compact(SECRET_0, message));
-		assert!(check_recover_compact(SECRET_1, message));
-		assert!(check_recover_compact(SECRET_1C, message));
-		assert!(check_recover_compact(SECRET_2, message));
-		assert!(check_recover_compact(SECRET_2C, message));
 	}
 }

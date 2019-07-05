@@ -1,10 +1,9 @@
 use std::{fmt, ops};
-use secp256k1::key;
-use secp256k1::{Message as SecpMessage, RecoveryId, RecoverableSignature, Error as SecpError, Signature as SecpSignature};
+use secp256k1::{Message as SecpMessage, PublicKey, PublicKeyFormat, Signature as SecpSignature, verify};
 use hex::ToHex;
 use crypto::dhash160;
 use hash::{H264, H520};
-use {AddressHash, Error, CompactSignature, Signature, Message, SECP256K1};
+use {AddressHash, Error, Signature, Message};
 
 /// Secret public key
 pub enum Public {
@@ -42,37 +41,14 @@ impl Public {
 	}
 
 	pub fn verify(&self, message: &Message, signature: &Signature) -> Result<bool, Error> {
-		let context = &SECP256K1;
-		let public = try!(key::PublicKey::from_slice(context, self));
-		let mut signature = try!(SecpSignature::from_der_lax(context, signature));
-		signature.normalize_s(context);
-		let message = try!(SecpMessage::from_slice(&**message));
-		match context.verify(&message, &signature, &public) {
-			Ok(_) => Ok(true),
-			Err(SecpError::IncorrectSignature) => Ok(false),
-			Err(x) => Err(x.into()),
-		}
-	}
-
-	pub fn recover_compact(message: &Message, signature: &CompactSignature) -> Result<Self, Error> {
-		let context = &SECP256K1;
-		let recovery_id = (signature[0] - 27) & 3;
-		let compressed = (signature[0] - 27) & 4 != 0;
-		let recovery_id = try!(RecoveryId::from_i32(recovery_id as i32));
-		let signature = try!(RecoverableSignature::from_compact(context, &signature[1..65], recovery_id));
-		let message = try!(SecpMessage::from_slice(&**message));
-		let pubkey = try!(context.recover(&message, &signature));
-		let serialized = pubkey.serialize_vec(context, compressed);
-		let public = if compressed {
-			let mut public = H264::default();
-			public.copy_from_slice(&serialized[0..33]);
-			Public::Compressed(public)
-		} else {
-			let mut public = H520::default();
-			public.copy_from_slice(&serialized[0..65]);
-			Public::Normal(public)
+		let public = match self {
+			Public::Compressed(public) => PublicKey::parse_slice(&**public, Some(PublicKeyFormat::Compressed))?,
+			Public::Normal(public) => PublicKey::parse_slice(&**public, Some(PublicKeyFormat::Full))?,
 		};
-		Ok(public)
+		let mut signature = SecpSignature::parse_der_lax(signature)?;
+		signature.normalize_s();
+		let message = SecpMessage::parse_slice(&**message)?;
+		Ok(verify(&message, &signature, &public))
 	}
 }
 
