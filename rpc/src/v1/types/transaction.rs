@@ -81,6 +81,13 @@ pub struct TransactionOutputScript {
 	pub addresses: Vec<String>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(untagged)]
+pub enum TransactionInputEnum {
+	Signed(SignedTransactionInput),
+	Coinbase(CoinbaseTransactionInput),
+}
+
 /// Signed transaction input
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct SignedTransactionInput {
@@ -95,6 +102,15 @@ pub struct SignedTransactionInput {
 	pub sequence: u32,
 	/// Hex-encoded witness data (if any)
 	pub txinwitness: Option<Vec<String>>,
+}
+
+/// Coinbase transaction input
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct CoinbaseTransactionInput {
+	/// coinbase
+	pub coinbase: Bytes,
+	/// Sequence number
+	pub sequence: u32,
 }
 
 /// Signed transaction output
@@ -127,7 +143,7 @@ pub struct Transaction {
 	/// The lock time
 	pub locktime: i32,
 	/// Transaction inputs
-	pub vin: Vec<SignedTransactionInput>,
+	pub vin: Vec<TransactionInputEnum>,
 	/// Transaction outputs
 	pub vout: Vec<SignedTransactionOutput>,
 	/// Hash of the block this transaction is included in
@@ -539,6 +555,56 @@ mod tests {
 			"rawconfirmations":549608,
 			"time":1528215344,
 			"blocktime":1528215344
+		}"#;
+
+		let _tx: Transaction = serde_json::from_str(tx_str).unwrap();
+	}
+
+	#[test]
+	fn test_kmd_coinbase_transaction_parse() {
+		let tx_str = r#"{
+			"hex": "0400008085202f89010000000000000000000000000000000000000000000000000000000000000000ffffffff06030a4b020101ffffffff0178e600000000000023210388392e0885e449ea9745ce7ad2631fdca5288f9d790cee1b696e67c75ad54a2dac1ad92f5d000000000000000000000000000000",
+			"txid": "6f173d96987e765b0fd8a47fdb976e8edc767207f3c0028e17a224380d9a14a3",
+			"overwintered": true,
+			"version": 4,
+			"versiongroupid": "892f2085",
+			"locktime": 1563416858,
+			"expiryheight": 0,
+			"vin": [
+				{
+				  "coinbase": "030a4b020101",
+				  "sequence": 4294967295
+				}
+			],
+			"vout": [
+				{
+				  "value": 0.00059000,
+				  "valueSat": 59000,
+				  "n": 0,
+				  "scriptPubKey": {
+					"asm": "0388392e0885e449ea9745ce7ad2631fdca5288f9d790cee1b696e67c75ad54a2d OP_CHECKSIG",
+					"hex": "210388392e0885e449ea9745ce7ad2631fdca5288f9d790cee1b696e67c75ad54a2dac",
+					"reqSigs": 1,
+					"type": "pubkey",
+					"addresses": [
+					  "RM5wffThEVKQdG98uLa2gc8Nk4CzX9Fq4q"
+					]
+				  }
+				}
+			],
+			"vjoinsplit": [
+			],
+			"valueBalance": 0.00000000,
+			"vShieldedSpend": [
+			],
+			"vShieldedOutput": [
+			],
+			"blockhash": "04b08f77065a70c86fd47e92cbff2cd73b1768428da7c8e328d903d76e8dc37e",
+			"height": 150282,
+			"confirmations": 1,
+			"rawconfirmations": 6,
+			"time": 1563416858,
+			"blocktime": 1563416858
 		}"#;
 
 		let _tx: Transaction = serde_json::from_str(tx_str).unwrap();
