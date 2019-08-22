@@ -11,7 +11,7 @@ use {
 
 /// Helper function.
 fn check_signature(
-	checker: &SignatureChecker,
+	checker: &dyn SignatureChecker,
 	mut script_sig: Vec<u8>,
 	public: Vec<u8>,
 	script_code: &Script,
@@ -247,7 +247,7 @@ pub fn verify_script(
 	script_pubkey: &Script,
 	witness: &ScriptWitness,
 	flags: &VerificationFlags,
-	checker: &SignatureChecker,
+	checker: &dyn SignatureChecker,
 	version: SignatureVersion,
 ) -> Result<(), Error> {
 	if flags.verify_sigpushonly && !script_sig.is_push_only() {
@@ -351,7 +351,7 @@ fn verify_witness_program(
 	witness_version: u8,
 	witness_program: &[u8],
 	flags: &VerificationFlags,
-	checker: &SignatureChecker,
+	checker: &dyn SignatureChecker,
 ) -> Result<bool, Error> {
 	if witness_version != 0 {
 		if flags.verify_discourage_upgradable_witness_program {
@@ -419,7 +419,7 @@ pub fn eval_script(
 	stack: &mut Stack<Bytes>,
 	script: &Script,
 	flags: &VerificationFlags,
-	checker: &SignatureChecker,
+	checker: &dyn SignatureChecker,
 	version: SignatureVersion
 ) -> Result<bool, Error> {
 	if script.len() > script::MAX_SCRIPT_SIZE {
@@ -1139,6 +1139,7 @@ pub fn eval_script(
 mod tests {
 	use bytes::Bytes;
 	use chain::Transaction;
+	use crypto::ChecksumType;
 	use hash::{H256, H512};
 	use sign::SignatureVersion;
 	use script::MAX_SCRIPT_ELEMENT_SIZE;
@@ -2250,7 +2251,12 @@ mod tests {
 		use sign::UnsignedTransactionInput;
 		use chain::{OutPoint, TransactionOutput};
 
-		let key_pair = KeyPair::from_private(Private { prefix: 128, secret: 1.into(), compressed: false, }).unwrap();
+		let key_pair = KeyPair::from_private(Private {
+			prefix: 128,
+			secret: 1.into(),
+			compressed: false,
+			checksum_type: ChecksumType::DSHA256,
+		}).unwrap();
 		let redeem_script = Builder::default()
 			.push_data(key_pair.public())
 			.push_opcode(Opcode::OP_CHECKSIG)

@@ -102,7 +102,7 @@ impl Sighash {
 	}
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct UnsignedTransactionInput {
 	pub previous_output: OutPoint,
 	pub sequence: u32,
@@ -120,7 +120,7 @@ impl From<TransactionInput> for UnsignedTransactionInput {
 	}
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TransactionInputSigner {
 	pub version: i32,
 	pub overwintered: bool,
@@ -152,6 +152,35 @@ impl From<Transaction> for TransactionInputSigner {
 			shielded_spends: t.shielded_spends.clone(),
 			shielded_outputs: t.shielded_outputs.clone(),
 			zcash: t.zcash,
+		}
+	}
+}
+
+/// Used during transaction construction with dynamic fee calculation (sat per kbyte)
+/// to calculate tx size, TransactionInputSigner doesn't implement Serializable
+impl From<TransactionInputSigner> for Transaction {
+	fn from(t: TransactionInputSigner) -> Self {
+		Transaction {
+			version: t.version,
+			overwintered: t.overwintered,
+			version_group_id: t.version_group_id,
+			expiry_height: t.expiry_height,
+			value_balance: t.value_balance,
+			inputs: t.inputs.into_iter().map(|input| TransactionInput {
+				previous_output: input.previous_output,
+				script_sig: vec![].into(),
+				sequence: input.sequence,
+				script_witness: vec![],
+			}).collect(),
+			outputs: t.outputs,
+			lock_time: t.lock_time,
+			join_splits: t.join_splits.clone(),
+			shielded_spends: t.shielded_spends.clone(),
+			shielded_outputs: t.shielded_outputs.clone(),
+			zcash: t.zcash,
+			binding_sig: H512::default(),
+			join_split_pubkey: H256::default(),
+			join_split_sig: H512::default(),
 		}
 	}
 }
