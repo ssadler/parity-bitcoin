@@ -4,6 +4,9 @@ extern crate bitcrypto as crypto;
 extern crate serialization as ser;
 #[macro_use]
 extern crate serialization_derive;
+#[cfg(test)]
+#[macro_use]
+extern crate unwrap;
 
 pub mod constants;
 

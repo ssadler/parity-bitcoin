@@ -9,6 +9,7 @@ use crypto::dhash256;
 use hash::{H64, H256, H512, EncCipherText, OutCipherText, ZkProofSapling, CipherText};
 use constants::{SEQUENCE_FINAL, LOCKTIME_THRESHOLD};
 use ser::{Error, Serializable, Deserializable, Stream, Reader};
+use std::io::Read;
 
 /// Must be zero.
 const WITNESS_MARKER: u8 = 0;
@@ -151,6 +152,7 @@ impl Deserializable for JoinSplit {
 #[derive(Debug, PartialEq, Default, Clone)]
 pub struct Transaction {
 	pub version: i32,
+	pub n_time: Option<u32>,
 	pub overwintered: bool,
 	pub version_group_id: u32,
 	pub inputs: Vec<TransactionInput>,
@@ -281,6 +283,10 @@ impl Serializable for Transaction {
                     stream.append(&self.version_group_id);
                 }
 
+				if let Some(n_time) = self.n_time {
+					stream.append(&n_time);
+				}
+
                 stream.append_list(&self.inputs)
                     .append_list(&self.outputs)
                     .append(&self.lock_time);
@@ -325,94 +331,115 @@ impl Serializable for Transaction {
 	}
 }
 
+fn deserialize_tx<T>(reader: &mut Reader<T>, is_pos: bool) -> Result<Transaction, Error> where T: io::Read {
+	let header: i32 = reader.read()?;
+	let overwintered: bool = (header >> 31) != 0;
+	let version = if overwintered {
+		header & 0x7FFFFFFF
+	} else {
+		header
+	};
+
+	let mut version_group_id = 0;
+	if overwintered {
+		version_group_id = reader.read()?;
+	}
+
+	let n_time = if is_pos {
+		Some(reader.read()?)
+	} else {
+		None
+	};
+	let mut inputs: Vec<TransactionInput> = reader.read_list()?;
+	let read_witness = if inputs.is_empty() && !overwintered {
+		let witness_flag: u8 = reader.read()?;
+		if witness_flag != WITNESS_FLAG {
+			return Err(Error::MalformedData);
+		}
+
+		inputs = reader.read_list()?;
+		true
+	} else {
+		false
+	};
+	let outputs = reader.read_list()?;
+	if read_witness {
+		for input in inputs.iter_mut() {
+			input.script_witness = reader.read_list()?;
+		}
+	}
+
+	let lock_time = reader.read()?;
+
+	let mut expiry_height = 0;
+	let mut value_balance = 0;
+	let mut shielded_spends = vec![];
+	let mut shielded_outputs = vec![];
+	if overwintered && version >= 3 {
+		expiry_height = reader.read()?;
+		if version >= 4 {
+			value_balance = reader.read()?;
+			shielded_spends = reader.read_list()?;
+			shielded_outputs = reader.read_list()?;
+		}
+	}
+
+	let mut join_splits = vec![];
+	let mut join_split_pubkey = H256::default();
+	let mut join_split_sig = H512::default();
+	let mut binding_sig = H512::default();
+	// Non-Zcash transactions usually end here
+	// But when overwintered is true then we have Zcash transaction for sure.
+	// If reader is already finished when overwintered we should just error
+	let zcash = !reader.is_finished() || overwintered;
+	if zcash {
+		if version == 2 || overwintered {
+			join_splits = reader.read_list()?;
+			if join_splits.len() > 0 {
+				join_split_pubkey = reader.read()?;
+				join_split_sig = reader.read()?;
+			}
+		}
+
+		if overwintered && version >= 4 && !(shielded_spends.len() == 0 && shielded_outputs.len() == 0) {
+			binding_sig = reader.read()?;
+		}
+	};
+
+	Ok(Transaction {
+		version,
+		n_time,
+		overwintered,
+		version_group_id,
+		expiry_height,
+		value_balance,
+		inputs,
+		outputs,
+		lock_time,
+		binding_sig,
+		join_split_pubkey,
+		join_split_sig,
+		join_splits,
+		shielded_spends,
+		shielded_outputs,
+		zcash,
+	})
+}
+
 impl Deserializable for Transaction {
 	fn deserialize<T>(reader: &mut Reader<T>) -> Result<Self, Error> where Self: Sized, T: io::Read {
-		let header: i32 = reader.read()?;
-		let overwintered: bool = (header >> 31) != 0;
-		let version = if overwintered {
-			header & 0x7FFFFFFF
-		} else {
-			header
-		};
-
-		let mut version_group_id = 0;
-		if overwintered {
-			version_group_id = reader.read()?;
+		// read the entire buffer to get it's copy for different cases
+		// it works properly only when buffer contains only 1 transaction bytes
+		// it breaks block serialization, but block serialization is not required for AtomicDEX
+		// specific use case
+		let mut buffer = vec![];
+		reader.read_to_end(&mut buffer)?;
+		match deserialize_tx(&mut Reader::from_read(buffer.as_slice()), false) {
+			Ok(t) => Ok(t),
+			Err(_) => {
+				Ok(deserialize_tx(&mut Reader::from_read(buffer.as_slice()), true)?)
+			},
 		}
-
-		let mut inputs: Vec<TransactionInput> = reader.read_list()?;
-		let read_witness = if inputs.is_empty() && !overwintered {
-			let witness_flag: u8 = reader.read()?;
-			if witness_flag != WITNESS_FLAG {
-				return Err(Error::MalformedData);
-			}
-
-			inputs = reader.read_list()?;
-			true
-		} else {
-			false
-		};
-		let outputs = reader.read_list()?;
-		if read_witness {
-			for input in inputs.iter_mut() {
-				input.script_witness = reader.read_list()?;
-			}
-		}
-
-		let lock_time = reader.read()?;
-
-		let mut expiry_height = 0;
-		let mut value_balance = 0;
-		let mut shielded_spends = vec![];
-		let mut shielded_outputs = vec![];
-		if overwintered && version >= 3 {
-			expiry_height = reader.read()?;
-			if version >= 4 {
-				value_balance = reader.read()?;
-				shielded_spends = reader.read_list()?;
-				shielded_outputs = reader.read_list()?;
-			}
-		}
-
-		let mut join_splits = vec![];
-		let mut join_split_pubkey = H256::default();
-		let mut join_split_sig = H512::default();
-		let mut binding_sig = H512::default();
-		// Non-Zcash transactions usually end here
-		// But when overwintered is true then we have Zcash transaction for sure.
-		// If reader is already finished when overwintered we should just error
-		let zcash = !reader.is_finished() || overwintered;
-		if zcash {
-			if version == 2 || overwintered {
-				join_splits = reader.read_list()?;
-				if join_splits.len() > 0 {
-					join_split_pubkey = reader.read()?;
-					join_split_sig = reader.read()?;
-				}
-			}
-
-			if overwintered && version >= 4 && !(shielded_spends.len() == 0 && shielded_outputs.len() == 0) {
-				binding_sig = reader.read()?;
-			}
-		};
-
-		Ok(Transaction {
-			version,
-			overwintered,
-			version_group_id,
-			expiry_height,
-			value_balance,
-			inputs,
-			outputs,
-			lock_time,
-			binding_sig,
-			join_split_pubkey,
-			join_split_sig,
-			join_splits,
-			shielded_spends,
-			shielded_outputs,
-			zcash,
-		})
 	}
 }
 
@@ -537,10 +564,8 @@ mod tests {
 
 	// https://chainz.cryptoid.info/ecc/tx.dws?816906122e12c5b56a38f169aa2bdccb1e90f4e0d78a3777b60b262883132602.htm
 	// Deserialization of this ECC transaction failed
-	// there's an additional 4 bytes of data "between" the versions and inputs: 46fea85c
-	// Stop ignoring the test when purpose and possible values of this data is known
+	// ECC is PoS coin having nTime field in transaction
 	#[test]
-	#[ignore]
 	fn test_transaction_serde_ecc() {
 		let bytes: Vec<u8> = vec![1, 0, 0, 0, 70, 254, 168, 92, 1, 170, 99, 80, 219, 121, 123, 10, 150, 232, 96, 154, 102, 242, 208, 96, 100, 59, 114, 52, 38, 97, 143, 194, 239, 6, 154, 4, 232, 82, 124, 189, 240, 0, 0, 0, 0, 106, 71, 48, 68, 2, 32, 75, 18, 92, 56, 109, 69, 254, 77, 185, 43, 157, 13, 166, 30, 129, 30, 185, 72, 161, 125, 37, 134, 120, 218, 213, 146, 229, 8, 117, 133, 164, 38, 2, 32, 40, 91, 86, 89, 107, 96, 15, 202, 12, 124, 168, 252, 75, 139, 191, 93, 216, 144, 212, 58, 159, 166, 64, 202, 72, 155, 182, 222, 42, 140, 167, 128, 1, 33, 3, 148, 13, 224, 176, 222, 92, 35, 122, 18, 78, 113, 66, 51, 158, 172, 225, 229, 41, 119, 44, 212, 117, 176, 232, 66, 250, 100, 75, 202, 254, 73, 204, 254, 255, 255, 255, 2, 193, 198, 45, 0, 0, 0, 0, 0, 25, 118, 169, 20, 131, 5, 22, 126, 249, 90, 27, 30, 154, 205, 246, 52, 167, 104, 108, 183, 105, 147, 64, 106, 136, 172, 127, 132, 30, 0, 0, 0, 0, 0, 25, 118, 169, 20, 195, 247, 16, 222, 183, 50, 11, 14, 250, 110, 219, 20, 227, 235, 238, 185, 21, 95, 169, 13, 136, 172, 238, 100, 32, 0];
 		let t: Transaction = deserialize(bytes.as_slice()).unwrap();
@@ -557,8 +582,9 @@ mod tests {
 	}
 
 	// Deserialization of this NAV transaction failed
-	// there's an additional 4 bytes of data "between" the versions and inputs: 46fea85c
-	// Stop ignoring the test when purpose and possible values of this data is known
+	// NAV is PoS coin having nTime field in transaction
+	// NAV coin tx also has strDZeel field that is not supported as of now
+	// https://github.com/navcoin/navcoin-core/blob/85690b907f423fab48ee41dd1782f3ee9040d68d/src/primitives/transaction.h#L414
 	#[test]
 	#[ignore]
 	fn test_transaction_serde_nav() {
@@ -568,8 +594,8 @@ mod tests {
 		assert_eq!(t.version, 3);
 		assert!(!t.overwintered);
 		assert!(!t.has_witness());
-        assert_eq!(t.inputs.len(), 1);
-        assert_eq!(t.outputs.len(), 2);
+        assert_eq!(t.inputs.len(), 2);
+        assert_eq!(t.outputs.len(), 1);
         assert_eq!(t.shielded_spends.len(), 0);
         assert_eq!(t.shielded_outputs.len(), 0);
         assert_eq!(t.join_splits.len(), 0);
@@ -615,6 +641,7 @@ mod tests {
 		let actual: Transaction = "01000000000102fff7f7881a8099afa6940d42d1e7f6362bec38171ea3edf433541db4e4ad969f00000000494830450221008b9d1dc26ba6a9cb62127b02742fa9d754cd3bebf337f7a55d114c8e5cdd30be022040529b194ba3f9281a99f2b1c0a19c0489bc22ede944ccf4ecbab4cc618ef3ed01eeffffffef51e1b804cc89d182d279655c3aa89e815b1b309fe287d9b2b55d57b90ec68a0100000000ffffffff02202cb206000000001976a9148280b37df378db99f66f85c95a783a76ac7a6d5988ac9093510d000000001976a9143bde42dbee7e4dbe6a21b2d50ce2f0167faa815988ac000247304402203609e17b84f6a7d30c80bfa610b5b4542f32a8a0d5447a12fb1366d7f01cc44a0220573a954c4518331561406f90300e8f3358f51928d43c212a8caed02de67eebee0121025476c2e83188368da1ff3e292e7acafcdb3566bb0ad253f62fc70f07aeee635711000000".into();
 		let expected = Transaction {
 			version: 1,
+			n_time: None,
 			overwintered: false,
 			expiry_height: 0,
 			binding_sig: H512::default(),
@@ -674,5 +701,15 @@ mod tests {
 
 		let transaction_with_witness: Transaction = "0000000000010100000000000000000000000000000000000000000000000000000000000000000000000000000000000001010000000000".into();
 		assert!(transaction_with_witness.hash() != transaction_with_witness.witness_hash());
+	}
+
+	// BLK is PoS coin having nTime field in transaction
+	#[test]
+	fn blk_transaction() {
+		let bytes: Vec<u8> = vec![1, 0, 0, 0, 162, 103, 223, 92, 2, 79, 49, 147, 29, 108, 253, 170, 24, 82, 136, 31, 202, 238, 165, 154, 222, 15, 158, 154, 96, 150, 241, 135, 100, 57, 134, 205, 59, 158, 195, 187, 15, 13, 0, 0, 0, 107, 72, 48, 69, 2, 33, 0, 241, 134, 33, 141, 133, 127, 125, 248, 164, 161, 111, 29, 251, 121, 92, 252, 149, 4, 154, 69, 79, 88, 127, 240, 164, 50, 188, 50, 172, 90, 143, 96, 2, 32, 79, 50, 70, 183, 118, 116, 15, 50, 225, 17, 124, 159, 80, 46, 221, 193, 119, 101, 103, 87, 97, 232, 200, 16, 26, 141, 152, 250, 118, 221, 90, 128, 1, 33, 2, 243, 240, 208, 177, 243, 186, 213, 250, 153, 106, 191, 167, 111, 157, 109, 1, 123, 168, 144, 58, 18, 100, 15, 42, 213, 185, 153, 37, 209, 197, 242, 75, 254, 255, 255, 255, 152, 209, 17, 248, 100, 77, 208, 109, 91, 63, 188, 17, 50, 85, 64, 148, 201, 222, 117, 40, 176, 243, 134, 218, 1, 68, 203, 63, 131, 29, 220, 202, 0, 0, 0, 0, 107, 72, 48, 69, 2, 33, 0, 253, 170, 126, 29, 64, 103, 227, 98, 71, 131, 253, 101, 78, 135, 207, 193, 211, 154, 116, 64, 213, 152, 136, 251, 197, 164, 155, 134, 107, 237, 34, 241, 2, 32, 16, 6, 149, 129, 154, 146, 137, 189, 250, 125, 163, 247, 238, 70, 34, 58, 227, 247, 198, 93, 108, 60, 210, 213, 128, 167, 131, 201, 210, 172, 206, 27, 1, 33, 2, 8, 204, 95, 204, 180, 120, 66, 94, 251, 138, 12, 183, 109, 21, 90, 210, 214, 172, 22, 178, 147, 29, 149, 41, 253, 105, 157, 87, 234, 50, 160, 76, 254, 255, 255, 255, 2, 80, 164, 22, 1, 0, 0, 0, 0, 25, 118, 169, 20, 68, 133, 246, 191, 218, 151, 98, 0, 55, 226, 89, 137, 136, 58, 126, 146, 73, 127, 96, 208, 136, 172, 192, 183, 226, 64, 0, 0, 0, 0, 25, 118, 169, 20, 195, 247, 16, 222, 183, 50, 11, 14, 250, 110, 219, 20, 227, 235, 238, 185, 21, 95, 169, 13, 136, 172, 90, 91, 39, 0];
+		println!("{}", bytes.to_hex::<String>());
+		let t: Transaction = deserialize(bytes.as_slice()).unwrap();
+		let serialized = serialize(&t);
+		assert_eq!(Bytes::from(bytes), serialized);
 	}
 }

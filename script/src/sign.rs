@@ -123,6 +123,7 @@ impl From<TransactionInput> for UnsignedTransactionInput {
 #[derive(Clone, Debug)]
 pub struct TransactionInputSigner {
 	pub version: i32,
+	pub n_time: Option<u32>,
 	pub overwintered: bool,
 	pub version_group_id: u32,
 	pub expiry_height: u32,
@@ -141,6 +142,7 @@ impl From<Transaction> for TransactionInputSigner {
 	fn from(t: Transaction) -> Self {
 		TransactionInputSigner {
 			version: t.version,
+			n_time: t.n_time,
 			overwintered: t.overwintered,
 			version_group_id: t.version_group_id,
 			expiry_height: t.expiry_height,
@@ -162,6 +164,7 @@ impl From<TransactionInputSigner> for Transaction {
 	fn from(t: TransactionInputSigner) -> Self {
 		Transaction {
 			version: t.version,
+			n_time: t.n_time,
 			overwintered: t.overwintered,
 			version_group_id: t.version_group_id,
 			expiry_height: t.expiry_height,
@@ -284,6 +287,7 @@ impl TransactionInputSigner {
 			inputs,
 			outputs,
 			version: self.version,
+			n_time: self.n_time,
 			lock_time: self.lock_time,
 			binding_sig: H512::default(),
 			expiry_height: 0,
@@ -536,6 +540,7 @@ mod tests {
 
 		let input_signer = TransactionInputSigner {
 			version: 1,
+			n_time: None,
 			overwintered: false,
 			version_group_id: 0,
 			expiry_height: 0,

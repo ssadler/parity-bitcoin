@@ -2270,6 +2270,7 @@ mod tests {
 			input_amount: amount,
 			signer: TransactionInputSigner {
 				version: 1,
+				n_time: None,
 				overwintered: false,
 				version_group_id: 0,
 				expiry_height: 0,
@@ -2339,6 +2340,7 @@ mod tests {
 
 		let tx1 = Transaction {
 			version: 1,
+			n_time: None,
 			binding_sig: H512::default(),
 			expiry_height: 0,
 			join_split_pubkey: H256::default(),
@@ -2367,6 +2369,7 @@ mod tests {
 		};
 		let tx2 = Transaction {
 			version: 1,
+			n_time: None,
 			binding_sig: H512::default(),
 			expiry_height: 0,
 			join_split_pubkey: H256::default(),
