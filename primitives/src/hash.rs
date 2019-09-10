@@ -164,6 +164,7 @@ impl_hash!(H512, 64);
 impl_hash!(H520, 65);
 impl_hash!(OutCipherText, 80);
 impl_hash!(ZkProofSapling, 192);
+impl_hash!(ZkProof, 296);
 impl_hash!(EncCipherText, 580);
 impl_hash!(CipherText, 601);
 

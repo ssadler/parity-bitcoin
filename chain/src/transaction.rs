@@ -1,4 +1,4 @@
-//! Bitcoin trainsaction.
+//! Bitcoin transaction.
 //! https://en.bitcoin.it/wiki/Protocol_documentation#tx
 
 use std::io;
@@ -6,9 +6,9 @@ use hex::FromHex;
 use bytes::Bytes;
 use ser::{deserialize, serialize, serialize_with_flags, SERIALIZE_TRANSACTION_WITNESS};
 use crypto::dhash256;
-use hash::{H64, H256, H512, EncCipherText, OutCipherText, ZkProofSapling, CipherText};
+use hash::{H64, H256, H512, EncCipherText, OutCipherText, ZkProof, ZkProofSapling, CipherText};
 use constants::{SEQUENCE_FINAL, LOCKTIME_THRESHOLD};
-use ser::{Error, Serializable, Deserializable, Stream, Reader};
+use ser::{CompactInteger, Error, Serializable, Deserializable, Stream, Reader};
 use std::io::Read;
 
 /// Must be zero.
@@ -100,6 +100,21 @@ pub struct ShieldedOutput {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub enum JoinSplitProof {
+    PHGR(ZkProof),
+    Groth(ZkProofSapling),
+}
+
+impl Serializable for JoinSplitProof {
+    fn serialize(&self, stream: &mut Stream) {
+        match self {
+            JoinSplitProof::PHGR(p) => stream.append(p),
+            JoinSplitProof::Groth(p) => stream.append(p),
+        };
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub struct JoinSplit {
 	pub v_pub_old: H64,
 	pub v_pub_new: H64,
@@ -109,7 +124,7 @@ pub struct JoinSplit {
 	pub ephemeral_key: H256,
 	pub random_seed: H256,
 	pub macs: [H256; 2],
-	pub zkproof: ZkProofSapling,
+	pub zkproof: JoinSplitProof,
 	pub ciphertexts: [CipherText; 2],
 }
 
@@ -133,22 +148,25 @@ impl Serializable for JoinSplit {
 	}
 }
 
-// TODO Make it more optimal later by adding fixed-size array support to serialization_derive crate
-impl Deserializable for JoinSplit {
-	fn deserialize<T>(reader: &mut Reader<T>) -> Result<Self, Error> where Self: Sized, T: io::Read {
-		Ok(JoinSplit {
-			v_pub_old: reader.read()?,
-			v_pub_new: reader.read()?,
-			anchor: reader.read()?,
-			nullifiers: [reader.read()?, reader.read()?],
-			commitments: [reader.read()?, reader.read()?],
-			ephemeral_key: reader.read()?,
-			random_seed: reader.read()?,
-			macs: [reader.read()?, reader.read()?],
-			zkproof: reader.read()?,
-			ciphertexts: [reader.read()?, reader.read()?],
-		})
-	}
+fn deserialize_join_split<T>(reader: &mut Reader<T>, use_groth: bool) -> Result<JoinSplit, Error> where T: io::Read {
+    Ok(JoinSplit {
+        v_pub_old: reader.read()?,
+        v_pub_new: reader.read()?,
+        anchor: reader.read()?,
+        nullifiers: [reader.read()?, reader.read()?],
+        commitments: [reader.read()?, reader.read()?],
+        ephemeral_key: reader.read()?,
+        random_seed: reader.read()?,
+        macs: [reader.read()?, reader.read()?],
+        zkproof: if use_groth {
+            let proof: ZkProofSapling = reader.read()?;
+            JoinSplitProof::Groth(proof)
+        } else {
+            let proof: ZkProof = reader.read()?;
+            JoinSplitProof::PHGR(proof)
+        },
+        ciphertexts: [reader.read()?, reader.read()?],
+    })
 }
 
 #[derive(Debug, PartialEq, Default, Clone)]
@@ -333,7 +351,14 @@ impl Serializable for Transaction {
 	}
 }
 
-fn deserialize_tx<T>(reader: &mut Reader<T>, is_pos: bool) -> Result<Transaction, Error> where T: io::Read {
+#[derive(Eq, PartialEq)]
+enum TxType {
+    StandardWithWitness,
+    Zcash,
+    PosWithNTime,
+}
+
+fn deserialize_tx<T>(reader: &mut Reader<T>, tx_type: TxType) -> Result<Transaction, Error> where T: io::Read {
 	let header: i32 = reader.read()?;
 	let overwintered: bool = (header >> 31) != 0;
 	let version = if overwintered {
@@ -347,13 +372,13 @@ fn deserialize_tx<T>(reader: &mut Reader<T>, is_pos: bool) -> Result<Transaction
 		version_group_id = reader.read()?;
 	}
 
-	let n_time = if is_pos {
+	let n_time = if tx_type == TxType::PosWithNTime {
 		Some(reader.read()?)
 	} else {
 		None
 	};
 	let mut inputs: Vec<TransactionInput> = reader.read_list_max(MAX_LIST_SIZE)?;
-	let read_witness = if inputs.is_empty() && !overwintered {
+	let read_witness = if inputs.is_empty() && !overwintered && tx_type == TxType::StandardWithWitness {
 		let witness_flag: u8 = reader.read()?;
 		if witness_flag != WITNESS_FLAG {
 			return Err(Error::MalformedData);
@@ -393,14 +418,19 @@ fn deserialize_tx<T>(reader: &mut Reader<T>, is_pos: bool) -> Result<Transaction
 	// Non-Zcash transactions usually end here
 	// But when overwintered is true then we have Zcash transaction for sure.
 	// If reader is already finished when overwintered we should just error
-	let zcash = !reader.is_finished() || overwintered;
+	let zcash = !reader.is_finished() || overwintered || tx_type == TxType::Zcash;
 	if zcash {
 		if version == 2 || overwintered {
-			join_splits = reader.read_list_max(MAX_LIST_SIZE)?;
-			if join_splits.len() > 0 {
-				join_split_pubkey = reader.read()?;
-				join_split_sig = reader.read()?;
-			}
+            let len: usize = reader.read::<CompactInteger>()?.into();
+            if len > 0 {
+                if len > MAX_LIST_SIZE { return Err(Error::MalformedData) };
+                let use_groth = version > 2;
+                for _ in 0..len {
+                    join_splits.push(deserialize_join_split(reader, use_groth)?);
+                }
+                join_split_pubkey = reader.read()?;
+                join_split_sig = reader.read()?;
+            }
 		}
 
 		if overwintered && version >= 4 && !(shielded_spends.len() == 0 && shielded_outputs.len() == 0) {
@@ -436,12 +466,13 @@ impl Deserializable for Transaction {
 		// specific use case
 		let mut buffer = vec![];
 		reader.read_to_end(&mut buffer)?;
-		match deserialize_tx(&mut Reader::from_read(buffer.as_slice()), false) {
-			Ok(t) => Ok(t),
-			Err(_) => {
-				Ok(deserialize_tx(&mut Reader::from_read(buffer.as_slice()), true)?)
-			},
+		if let Ok(t) = deserialize_tx(&mut Reader::from_read(buffer.as_slice()), TxType::StandardWithWitness) {
+			return Ok(t);
 		}
+        if let Ok(t) = deserialize_tx(&mut Reader::from_read(buffer.as_slice()), TxType::PosWithNTime) {
+			return Ok(t);
+		}
+        deserialize_tx(&mut Reader::from_read(buffer.as_slice()), TxType::Zcash)
 	}
 }
 
@@ -732,4 +763,22 @@ mod tests {
 		assert_eq!(1, t.outputs.len());
 		assert_eq!(serialize(&t).to_hex::<String>(), transaction);
 	}
+
+    #[test]
+    // https://kmdexplorer.io/tx/687acd73ad23ce93e7ddabeece8eb228a0a0e15e4d265f7c717d7458ddce9bdd
+    fn kmd_687acd73ad23ce93e7ddabeece8eb228a0a0e15e4d265f7c717d7458ddce9bdd() {
+        let transaction = "02000000000202ecf451020000001976a9140eaccdb0d80773734ebd6deab0b2d8ac1eed1e9188ac83349800000000001976a9145177f8b427e5f47342a4b8ab5dac770815d4389e88ac00000000010000000000000000c5629c52020000005d45bfb8839a898af4d22c3569923cd2017e4f574fd425ed6a35c9d2f746be10fecf8072db89387c1ae4b6a131dcb60541e512375c9250801133a7f599350f11435b0705a0a7bb1712fb224fe8d750b2881771481b6276bd680e75361e86124579575403b75b3ff60ee7c08a43ecf2a1a67e156e1bd2dc7c247f1ec4a712958c0c7b4f88c3aaee1661a5c26ed119ce08b25b65030967d078b6ebd5202878d27d64ceeb51139a3f86f40184f659878f0692cd863f76e8a0c18af2c09e1973176b87821b2b32e033833d28b1cfcc8ba2486aea8991de4cbb6e2634295956e341c35143c133f28ca978d3115b63c24e642b9f08cc61728e63a2cd51832a97c9482dfefedd12ad549d6791d6ccc4bb196ec433780680d8f9d5938e4c09cfe3701038031fbdede7125e5f92531d3374cc59eefbbd021118d0d7c992a9fe95b0027331e602154164bcf599f93ec90357c27ab68723d56ba812c9c05d2b4f053d077807f0c20a07f5cdc652851786fd3a2b5f9342a14c8cdba7dbac3bdb31ff64884853c64da56faf00bbad0b5010eb62a65fc5738a3a9bef7f14e7ce14c093efc0bdf7eef728030e45b1bf0419f025fe06918452ace10cc63be5e08f64e326f27989eac30de1de030850bab2d19f5f91073b45cf9be99d46f9f233856c75dd9ef4b8cf608e7853220317956376c1c3533ddca185af1b5da30e8cc95a0cb28463be840e24cc64e517c3030a413f7f670279e55dc2dac5092190c339e0769a25b50beba74098b7dfd9b232020d59ac11b915c4deb3cd6cd8e103952133a0da027837f8f4b8a35db033152fb85f7d001a14f0487fd9bd52c32ff3369bf4cfa0e4b7330d6ec94ea958cf5fa6c3481011e4e2e459deef5021b6e0c277bf1e11fc8fc0c7a5d779e34402d8a917d952520bb2492b36c5939a9c71920a12014794c50164e16dc1fb0dd9b47fd10c759c1c4f990ae17f04eae205b86a94ae8755cf5ea68bf9ee4963e3acc4b7211c9250772b9ddcf9cee78b37b4d398606e0b61d66798dc1fd409821dbd6e318853c4c9b5e0daa896dd4fb09cfad8ed081b26f4599b6124171588979035bfead194bb607a7fba38528d7a5c20439ba74b2720e5e50b1d3f34649ad8736599a395a8af4c1014997ae8de5ef3e42fcf3511859283b98674bcc73b3defc8423f82cbed23bf7cfcb1019c15d144b44001a61ab10f527369c55255528957d6a38077fa974ed14139e71adb2a1b17d6a377029189cc2e9a7196e367f7cdbc9af18cfc52ca381895cbe194a672bf5b988cec8fc53fc1eb6c357305e2f5aa43485408a3bfc0353ed8f277f0365af9acd0de3a6ab9e0eefc49d0edac4ac4e9aa42b19d38d9149d36c9cb7e5438d86c2df399ff91222fc7725b1868aa06bc2e109e4cedb2e4b071a667abc2e4c974edecac6626c14485dd36f6e53bb0ddb6bcbb7013310965de93302cc196aa26ab06c988cdc751eab3f621fb77316682a058dcd101b70d30fc5c12fc09ec356c6c25b9cda8d65dabc02f3760b90a48f3ffb16e54c1a98aebaccbf7cf20ba0df37c5480e475a1c451d41c63a1d9a59a11a35a92b9e6990ba0813103fc87efbecec6010f82d66ea25a5f9a52e3212c03e3ed9828acd1bdcf3d6aa6bc554cdb203acc2de30fdb27aa01b340a2bf59e85da1e031a5cb54b26854a5d9ecfb79f6b6f7c4835e11b9f8193c50030a3595965125cdbe8e0b07a7705b4afc5b839598c885b3adbbe66993ee13df0132150f647cbbe752d646088ad6cc0b5cc3cf19596edc6919baa8ee9f99c14af63f55c834542d48560d1d73f68edfb36df56ba129427fe17c11c813b072dda7453354746ff94c6616a5397fb5c6bfcf5b0b1c1daa81c97f6a6b9a2bb2e83a864860df321791b2aa8b0657f90e691d182233a049f1a1a8f3e353b9289a781fcc8a497772ca3fc0abc41bb38cbdba69752d9330d282d9a8d19449c2090139c00f4aaadef83cf4554ff8d0c0091ec424f4a5f82154ef12234e33581e0af30ed6752b40a799067771956d5471b2943d26cbbd6dedb612752547486648a0ee304ccd5c18a7ec7c096792f656988d07d8e0efdb9bda9ae6b0e7c2aba617261f464c95565bb9bd8f89d608371872b2dfe96fb5cadea12ef7aa5703342ade7f307efbbaed094357e4915e3e48bc03f99ae77c6b3f660aedf584915aa37f428751bda0c2e7faf4f1f4da43907ca716917c57502f72988dc2ac443e78aa0045c211e616a5c625632535ba6126ab0131e5a795edc35ef76730b08d3faecd3ddd4f588919dbcd984a8c8e97615a8d4d63e999536e8075acb90c2b36b2e57aa7eb12ec97a8d967468639a5ee651ab7d7328ba334915580c8960fcca335a6633e196beefb8e4cef53ac77814590a3d47486611e50adca3758d881b8cdef37d69b70c503d856389b7c1071db97a5b6bb66271f8229534b47a50e3aa2bf58bdef29e5ddc526ffbc400c09fbd5c3bf4bbd29027b6fe9bede49ccdb3588f52daeed648524dd1e9ae237b74eda79ef42a807ffa33a99a2a2ba237385f1fa997b09073945b87a6babef9e544d384fee7ed2068687ef4325358fc0e4dc47923f3f4f391650a3cf008d75a823a6e754bf8c8764462c6e7f9880d49997f8c6bd67792131604c5a8ca83ead333006";
+        let t: Transaction = transaction.into();
+        println!("{:?}", t);
+        assert_eq!(transaction, serialize(&t).to_hex::<String>());
+    }
+
+    #[test]
+    // https://kmdexplorer.io/tx/5c480ed607993e0a28173ad030077a25a460d14cdd9dda494299c60b832233df
+    fn kmd_5c480ed607993e0a28173ad030077a25a460d14cdd9dda494299c60b832233df() {
+        let transaction = "02000000000202ecf451020000001976a9140eaccdb0d80773734ebd6deab0b2d8ac1eed1e9188ac83349800000000001976a9145177f8b427e5f47342a4b8ab5dac770815d4389e88ac00000000010000000000000000c5629c5202000000e69af4fa69bbf4766afa924efa74234f731e4bb886a8c97047f6e8679a42f4df7c27e739653d9c49a233f6e65483eedfdfe21e0c566953ad7a71def70dc8f5de3e46735b3217ae32082871d9741370ce7fb26392a261d613ef340d6c97220b5244364d12ed50a7a3c3d23202bee9cb98f4f98b5267c750207d492fdf5d1fc9d4326491262a67b455d9df5177ed87c20ad9d1a2514f8ec54ea7a0d442e1205e76425e773ec00b81a386abff593f341de8fe9733ed956e94ede7de199ca751d520d852cc812e09e19afd9fed4aa314b137c8a810cce86771b66badaf5a6e922fc6402c98b7d478e733fe018121c74e6e615110e70365df0452f701010d697490d9344f6fca14482bf8daecd8f3051fa40a6af3f72c9ee659f37821c1742312f82d021684fc6374c24fbe8802a250bfc60fdcff3363b19f5c6bbbf91d1b6ca192035e0204bb0a20ebd61536c0fbd6cf534615f537cd28c6f809aa5e5027d69f2e353d2d0a05d560d6d2e425bdaa61190a9bdf82f6594e857b2766e7fdbada2bdf165e125cb4931091eee8bf88d57d5b0404df69cce44731287da03dd0db0999b6cdc7e904021094d668fe5454d3c719dbc0012fd69c723edcfbd5e97a4c8bdb2bec13b54f04032bf94d7cac536cd5c64b05f5c1900e2e7be6c059b072b543d92e221c3ef4562f022f104d6594bf81836d0cd65cef476f65f78ee8d913819089ac7dfbe24230b05a022d8e60e011d93bcfc4f7fbf7747a7b0fa487cb1587c8e361b9d084bd4f6822ef03176ecd89df1b2290b628e17c1f5203a1bdd87954c7b0c12b7e061671be22cdb49cf50c2efce60ae3e52fbe8d740db41c5181d408bf1941a16a85d328a17c6f09ab92a5e06884659a02b96225de4de2edaa4595272fdf379ac0c5a8c9074324135127245d19621505d469d3c16e516e12832450c1c7c907325847ed6e80796a82ea3b6cbda51af6ca79fabc06aba17f73491ec4b5579e3f02fc0ca5589f7606b3c719fedb12439b0a4d7e19c9a5798d47e37483ef1ad492cc761d1bc2aee853e068bb23b418904db3b084af62594710d538b8fb82a4dbfb20ef25728c13df7dc548454295c3bd96de43f85fcf558a66261c376c43c740b9644bdbb34da613bd8ecd855ea66b77fcf97c1b7be238faa1a9dfe7caeb904e132cbf29496455d43d1960bc70f407069f4d2fe33fc40f1f22aa92291ea605952763b5bdd138ca85a24e97003915323dd89b15d63c0dbd76222b317a752584a3d0b8810c1135949fd3098f18a7afaaf8d479fe70110976d182e72b4a8f1ffbee84400bd3577b20ec70321654d8a9eb61562d67eab6d4527bc63a5f4f25b9631ca0095beb4abc493d5356dd1d133d6855e368794b3fe6d7d0995d3224c04b13b97310526a58195a321a1e2da8d2cd0af3f8fe3fc1504a994ffbce29cfa508c96ee2126ca7ab92f9503a476cd481a9414a1cc6ee24d18d06138160f931ea609441da60507581f24beb8605e8e2144f6ad620adc6c190e4e6a64364bbae3c99adf94e57fa13f2d2853e732f34131851276a368c23577ca21a4bb743a0cfc5ce8cb76c3e983211e9152e4e3c379edac6d0257a9bc70d706d004c33cc83f24acefcd730e46497e9dcceb84aaf6b46891098b8a274ebf83cba7ce86e3ac4776dd19d42cf0c903535d39c73f633afbaa5c9fd611a57320462f9e164d9fcd30b7f1a37cfd596bf744a785be880c92668bcbec40c3f64cb523ad1ce454b20783b1a0cabc4b1c45e2986a8fa9e646144c87f48f41f39409600a6914c25ac5706b6567307831a86abdee4b11e7efe480f0be8124f96b696dfaa11e48f23dc9deb0f38ecf1423d36af91aee697d25560e6d8a2d1f32b0bbc7392d4206bbfc8a32124c15bbc4be2cb92706fc3e7e7274688fb8f05f08d978e0bdd4ffbcf7d4254ab114c15175f033043059e6f19ac5c4728ae95bf00b5fb55221e313c1e2b5b9c09fb585aa300fb467c110625ed8f286f666f17453cfea74fb8dc1cc7eadd8fd1e7b073fffa0107817183d6c492b6136a2333323fdbde38de4df830b1dcae1ec6115401a3c834527d6924ff48e1a52e18bd8e5a060495050f57e83fcb5456dc2b868fe17e033d09d663a61e26490fc256251a199f554fd56d466ca7c65c9ee1cb6b25516f64120c4323868323c55943d3b224226150ab590b59f3896b30957e6beb5aaf8f7601feeab8e8d621af08059f59438ab1d2d23d603963d2eca6a65c62f9c1deb65f26cbe7d57b51a3a16d1bb13a7453a50c9a480f601fd576824518723543945d9a721ff02e2f4c667ee332ed1b2b3bc92a6f4348d24044e913ef0d080b9da700356fbf2c552efdd8cf37d294bdf1746237c08a33fbae3c6b79f742f5a7b0e8b9a2ae982c975ac93c851fc1ef4ff678ef5f9e7debb550dabb87bb0518ef69d715c0faf4b4c5c7896be17b04dbad7ba039b7e418e1cc68304c7563ebba0487ac4a335e95d021ea7d66903e11af70ec15f8c9bdc096c5312cfd3ae1cfcde3054016e0350c15483ef72fb87fc97ee0664c3d58e8f55db95b2c2f8a78e50d32309de0b5d41813064509aa57ea82f2200eb76bb02795f034165d18ff8e76b7c69d085750480e83f41bd27ac469c647a822f74ad604d12dd74c42a049a634686c0e";
+        let t: Transaction = transaction.into();
+        println!("{:?}", t);
+        assert_eq!(transaction, serialize(&t).to_hex::<String>());
+    }
 }
