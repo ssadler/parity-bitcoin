@@ -234,6 +234,11 @@ impl Serializable for Bytes {
 impl Deserializable for Bytes {
 	fn deserialize<T>(reader: &mut Reader<T>) -> Result<Self, Error> where T: io::Read {
 		let len = try!(reader.read::<CompactInteger>());
+		// limit the len to 10000 (MAX_SCRIPT_SIZE) as invalid inputs might result to huge
+		// len being calculated causing attempt to allocate the huge amount of memory and then crash
+		if u64::from(len) > 10000 {
+			return Err(Error::MalformedData);
+		}
 		let mut bytes = Bytes::new_with_len(len.into());
 		try!(reader.read_slice(&mut bytes));
 		Ok(bytes)
