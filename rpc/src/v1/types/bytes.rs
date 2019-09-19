@@ -59,7 +59,9 @@ impl<'a> Visitor<'a> for BytesVisitor {
 	}
 
 	fn visit_str<E>(self, value: &str) -> Result<Self::Value, E> where E: Error {
-		if value.len() > 0 && value.len() & 1 == 0 {
+		if value.len() == 0 {
+			Ok(Bytes::new(vec![]))
+		} else if value.len() & 1 == 0 {
 			Ok(Bytes::new(try!(FromHex::from_hex(&value).map_err(|_| Error::custom("invalid hex")))))
 		} else {
 			Err(Error::custom("invalid format"))
@@ -103,14 +105,15 @@ mod tests {
 
 	#[test]
 	fn test_bytes_deserialize() {
-		let bytes1: Result<Bytes, serde_json::Error> = serde_json::from_str(r#""""#);
+		let bytes1: Bytes = serde_json::from_str(r#""""#).unwrap();
 		let bytes2: Result<Bytes, serde_json::Error> = serde_json::from_str(r#""123""#);
 		let bytes3: Result<Bytes, serde_json::Error> = serde_json::from_str(r#""gg""#);
 
 		let bytes4: Bytes = serde_json::from_str(r#""12""#).unwrap();
 		let bytes5: Bytes = serde_json::from_str(r#""0123""#).unwrap();
-
-		assert!(bytes1.is_err());
+		// tx https://live.blockcypher.com/btc/tx/4ab5828480046524afa3fac5eb7f93f768c3eeeaeb5d4d6b6ff22801d3dc521e/
+		// has input with empty hex in scriptSig so deserialization from empty string should be allowed
+		assert_eq!(bytes1, Bytes(vec![]));
 		assert!(bytes2.is_err());
 		assert!(bytes3.is_err());
 		assert_eq!(bytes4, Bytes(vec![0x12]));
