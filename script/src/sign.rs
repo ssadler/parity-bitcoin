@@ -135,6 +135,7 @@ pub struct TransactionInputSigner {
 	pub shielded_spends: Vec<ShieldedSpend>,
 	pub shielded_outputs: Vec<ShieldedOutput>,
 	pub zcash: bool,
+	pub str_d_zeel: Option<String>,
 }
 
 /// Used for resigning and loading test transactions
@@ -154,6 +155,7 @@ impl From<Transaction> for TransactionInputSigner {
 			shielded_spends: t.shielded_spends.clone(),
 			shielded_outputs: t.shielded_outputs.clone(),
 			zcash: t.zcash,
+			str_d_zeel: t.str_d_zeel,
 		}
 	}
 }
@@ -184,6 +186,7 @@ impl From<TransactionInputSigner> for Transaction {
 			binding_sig: H512::default(),
 			join_split_pubkey: H256::default(),
 			join_split_sig: H512::default(),
+			str_d_zeel: t.str_d_zeel,
 		}
 	}
 }
@@ -300,6 +303,7 @@ impl TransactionInputSigner {
 			value_balance: 0,
 			version_group_id: 0,
 			zcash: self.zcash,
+			str_d_zeel: self.str_d_zeel.clone(),
 		};
 
 		let mut stream = Stream::default();
