@@ -126,6 +126,7 @@ pub struct TransactionInputSigner {
 	pub n_time: Option<u32>,
 	pub overwintered: bool,
 	pub version_group_id: u32,
+	pub consensus_branch_id: u32,
 	pub expiry_height: u32,
 	pub value_balance: u64,
 	pub inputs: Vec<UnsignedTransactionInput>,
@@ -146,6 +147,7 @@ impl From<Transaction> for TransactionInputSigner {
 			n_time: t.n_time,
 			overwintered: t.overwintered,
 			version_group_id: t.version_group_id,
+			consensus_branch_id: 0,
 			expiry_height: t.expiry_height,
 			value_balance: t.value_balance,
 			inputs: t.inputs.into_iter().map(Into::into).collect(),
@@ -364,12 +366,8 @@ impl TransactionInputSigner {
 		// memcpy(personalization, "ZcashSigHash", 12);
 		// memcpy(personalization+12, &leConsensusBranchId, 4);
 		// https://github.com/zcash/zcash/issues/3413
-		if self.version == 3 {
-			personalization.extend_from_slice(&[0x19, 0x1B, 0xA8, 0x5B]);
-		} else if self.version == 4 {
-			personalization.extend_from_slice(&[0xBB, 0x09, 0xB8, 0x76]);
-		} else {
-			return Err("Invalid tx version, don't have the consensus branch id for it".to_owned())
+		if self.version >= 3 {
+			personalization.extend_from_slice(&self.consensus_branch_id.to_le_bytes());
 		}
 
 		let mut header = self.version;
@@ -547,6 +545,7 @@ mod tests {
 			n_time: None,
 			overwintered: false,
 			version_group_id: 0,
+			consensus_branch_id: 0,
 			expiry_height: 0,
 			value_balance: 0,
 			lock_time: 0,
@@ -556,6 +555,7 @@ mod tests {
 			shielded_spends: vec![],
 			shielded_outputs: vec![],
 			zcash: false,
+			str_d_zeel: None,
 		};
 
 		let hash = input_signer.signature_hash(0, 0, &previous_output, SignatureVersion::Base, SighashBase::All.into());
@@ -609,6 +609,7 @@ mod tests {
 		let tx: Transaction = "0400008085202f8901a8c685478265f4c14dada651969c45a65e1aeb8cd6791f2f5bb6a1d9952104d9010000006b483045022100a61e5d557568c2ddc1d9b03a7173c6ce7c996c4daecab007ac8f34bee01e6b9702204d38fdc0bcf2728a69fde78462a10fb45a9baa27873e6a5fc45fb5c76764202a01210365ffea3efa3908918a8b8627724af852fc9b86d7375b103ab0543cf418bcaa7ffeffffff02005a6202000000001976a9148132712c3ff19f3a151234616777420a6d7ef22688ac8b959800000000001976a9145453e4698f02a38abdaa521cd1ff2dee6fac187188ac29b0040048b004000000000000000000000000".into();
 		let mut signer = TransactionInputSigner::from(tx);
 		signer.inputs[0].amount = 50000000;
+		signer.consensus_branch_id = 0x76b809bb;
 
 		let sig_hash = Sighash::from_u32(SignatureVersion::Base, 1);
 		let hash = signer.signature_hash_overwintered(
@@ -636,6 +637,7 @@ mod tests {
 		let tx: Transaction = "0400008085202f89012c07a03638d9cf4d2cc837784b3b06aa9a5c8b819f7cb0d373bf711108f4c0f2010000006b483045022100fceec7ffa2686377fa2e13d43aa1d8836c3b5ace5292dd2f65a75befec2660bd02205dc000c13a89975bf3fe85aa9c891fcdea6eb25bd5459ad204fe2946d22e49c3012102031d4256c4bc9f99ac88bf3dba21773132281f65f9bf23a59928bce08961e2f3ffffffff0240420f00000000001976a91405aab5342166f8594baf17a7d9bef5d56744332788ac7c288800000000001976a91405aab5342166f8594baf17a7d9bef5d56744332788ac00000000000000000000000000000000000000".into();
 		let mut signer = TransactionInputSigner::from(tx);
 		signer.inputs[0].amount = 9924260;
+		signer.consensus_branch_id = 0x76b809bb;
 
 		let sig_hash = Sighash::from_u32(SignatureVersion::Base, 1);
 		let hash = signer.signature_hash_overwintered(

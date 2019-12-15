@@ -2273,6 +2273,7 @@ mod tests {
 				n_time: None,
 				overwintered: false,
 				version_group_id: 0,
+				consensus_branch_id: 0,
 				expiry_height: 0,
 				value_balance: 0,
 				inputs: vec![
@@ -2296,6 +2297,7 @@ mod tests {
 				shielded_spends: vec![],
 				shielded_outputs: vec![],
 				zcash: false,
+				str_d_zeel: None,
 			},
 		};
 
@@ -2366,6 +2368,7 @@ mod tests {
 			}],
 			lock_time: 0,
 			zcash: false,
+			str_d_zeel: None,
 		};
 		let tx2 = Transaction {
 			version: 1,
@@ -2395,6 +2398,7 @@ mod tests {
 			}],
 			lock_time: 0,
 			zcash: false,
+			str_d_zeel: None,
 		};
 
 		let checker = TransactionSignatureChecker {
