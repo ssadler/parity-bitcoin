@@ -152,6 +152,9 @@ pub struct Transaction {
 	/// Number of confirmations of this transaction
 	#[serde(default)]
 	pub confirmations: u32,
+	/// Number of rawconfirmations of this transaction, KMD specific
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub rawconfirmations: Option<u32>,
 	/// The transaction time in seconds since epoch (Jan 1 1970 GMT)
 	#[serde(default)]
 	pub time: u32,
@@ -452,6 +455,7 @@ mod tests {
 			vout: vec![],
 			blockhash: H256::from(6),
 			confirmations: 77,
+			rawconfirmations: None,
 			time: 88,
 			blocktime: 99,
 			height: 0,
@@ -473,6 +477,7 @@ mod tests {
 			vout: vec![],
 			blockhash: H256::from(6),
 			confirmations: 77,
+			rawconfirmations: None,
 			time: 88,
 			blocktime: 99,
 			height: 0,
@@ -1696,5 +1701,60 @@ mod tests {
 		}"#;
 
 		let _tx: Transaction = serde_json::from_str(tx_str).unwrap();
+	}
+
+	fn test_kmd_raw_confirmations() {
+		let json_str = r#"{
+			"hex":"0400008085202f89010000000000000000000000000000000000000000000000000000000000000000ffffffff0603aed11a0101ffffffff0188b6e11100000000232103fff24efd5648870a23badf46e26510e96d9e79ce281b27cfe963993039dd1351ac3b5e4e5e000000000000000000000000000000",
+			"txid":"1b1a413c7205dc07f23ef60ca04d29ca33d72e9f6c473ddd8b02aaac53fb8e7a",
+			"overwintered":true,
+			"version":4,
+			"last_notarized_height":1757600,
+			"versiongroupid":"892f2085",
+			"locktime":1582194235,
+			"expiryheight":0,
+			"vin":[
+				{
+					"coinbase":"03aed11a0101",
+					"sequence":4294967295
+				}
+			],
+			"vout":[
+				{
+					"value":3.00005,
+					"interest":0.0,
+					"valueSat":300005000,
+					"n":0,
+					"scriptPubKey":{
+					"asm":"03fff24efd5648870a23badf46e26510e96d9e79ce281b27cfe963993039dd1351 OP_CHECKSIG",
+					"hex":"2103fff24efd5648870a23badf46e26510e96d9e79ce281b27cfe963993039dd1351ac",
+					"reqSigs":1,
+					"type":"pubkey",
+					"addresses":[
+						"RTPBi5hpdSUARnh9gGahv6tr4ppHDwAkxD"
+					]
+				}
+				}
+			],
+			"vjoinsplit":[
+
+			],
+			"valueBalance":0.0,
+			"vShieldedSpend":[
+
+			],
+			"vShieldedOutput":[
+
+			],
+			"blockhash":"059ad2e93f92de1ff80432ba1227c83739ed76bc78f41630dd6a773dc6595dc8",
+			"height":1757614,
+			"confirmations":1,
+			"rawconfirmations":8,
+			"time":1582194235,
+			"blocktime":1582194235
+		}"#;
+
+		let tx: Transaction = serde_json::from_str(json_str).unwrap();
+		assert_eq!(tx.rawconfirmations, Some(8));
 	}
 }
