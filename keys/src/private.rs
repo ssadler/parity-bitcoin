@@ -10,7 +10,7 @@ use crypto::{checksum, ChecksumType};
 use {Secret, DisplayLayout, Error, Message, Signature};
 
 /// Secret with additional network prefix and format type
-#[derive(Default, PartialEq)]
+#[derive(Default, PartialEq, Clone)]
 pub struct Private {
 	/// The network prefix on which this key should be used.
 	pub prefix: u8,
