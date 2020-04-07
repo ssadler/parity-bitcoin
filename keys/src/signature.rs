@@ -7,7 +7,7 @@ use hex::{ToHex, FromHex};
 use hash::H520;
 use Error;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub struct Signature(Vec<u8>);
 
 impl fmt::Debug for Signature {
