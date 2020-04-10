@@ -6,6 +6,7 @@ use hash::{H264, H520};
 use {AddressHash, Error, Signature, Message};
 
 /// Secret public key
+#[derive(Clone)]
 pub enum Public {
 	/// Normal version of public key
 	Normal(H520),
