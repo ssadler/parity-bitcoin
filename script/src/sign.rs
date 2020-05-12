@@ -8,6 +8,7 @@ use hash::{H256, H512};
 use keys::KeyPair;
 use ser::{Stream};
 use {Script, Builder};
+use rustc_hex::{FromHex, ToHex};
 
 const ZCASH_PREVOUTS_HASH_PERSONALIZATION: &[u8] = b"ZcashPrevoutHash";
 const ZCASH_SEQUENCE_HASH_PERSONALIZATION: &[u8] = b"ZcashSequencHash";
@@ -375,27 +376,38 @@ impl TransactionInputSigner {
 			header |= 1 << 31;
 		}
 		sig_hash_stream.append(&header);
+                std::println!("header {:x}", header);
 		sig_hash_stream.append(&self.version_group_id);
+                std::println!("versionGroupId {:x}", self.version_group_id);
 
 		let mut prev_out_stream = Stream::new();
 		for input in self.inputs.iter() {
 			prev_out_stream.append(&input.previous_output);
 		}
-		sig_hash_stream.append(&blake_2b_256_personal(&prev_out_stream.out(), ZCASH_PREVOUTS_HASH_PERSONALIZATION));
+                let pos = prev_out_stream.out();
+                std::println!("prevOuts {}", pos.to_hex::<String>());
+
+                std::println!("prevOutsHash {}", blake_2b_256_personal(&pos, ZCASH_PREVOUTS_HASH_PERSONALIZATION).to_hex::<String>());
+		sig_hash_stream.append(&blake_2b_256_personal(&pos, ZCASH_PREVOUTS_HASH_PERSONALIZATION));
 
 		let mut sequence_stream = Stream::new();;
 		for input in self.inputs.iter() {
 			sequence_stream.append(&input.sequence);
 		}
 
-		sig_hash_stream.append(&blake_2b_256_personal(&sequence_stream.out(), ZCASH_SEQUENCE_HASH_PERSONALIZATION));
+                let ssout = sequence_stream.out();
+                std::println!("sequenceData {}", ssout.to_hex::<String>());
+                std::println!("sequenceHash {}", blake_2b_256_personal(&ssout, ZCASH_SEQUENCE_HASH_PERSONALIZATION).to_hex::<String>());
+		sig_hash_stream.append(&blake_2b_256_personal(&ssout, ZCASH_SEQUENCE_HASH_PERSONALIZATION));
 
 		let mut outputs_stream = Stream::new();;
 		for output in self.outputs.iter() {
 			outputs_stream.append(output);
 		}
 
-		sig_hash_stream.append(&blake_2b_256_personal(&outputs_stream.out(), ZCASH_OUTPUTS_HASH_PERSONALIZATION));
+                let os = blake_2b_256_personal(&outputs_stream.out(), ZCASH_OUTPUTS_HASH_PERSONALIZATION);
+                std::println!("outputsHash {}", os.to_hex::<String>());
+		sig_hash_stream.append(&os);
 
 		if self.join_splits.len() > 0 {
 			let mut join_splits_stream = Stream::new();
@@ -404,6 +416,7 @@ impl TransactionInputSigner {
 			}
 			sig_hash_stream.append(&blake_2b_256_personal(&join_splits_stream.out(), ZCASH_JOIN_SPLITS_HASH_PERSONALIZATION));
 		} else {
+                        std::println!("empty join split");
 			sig_hash_stream.append(&H256::default());
 		}
 
@@ -418,6 +431,7 @@ impl TransactionInputSigner {
 			}
 			sig_hash_stream.append(&blake_2b_256_personal(&s_spends_stream.out(), ZCASH_SHIELDED_SPENDS_HASH_PERSONALIZATION));
 		} else {
+                        std::println!("empty shielded_spends {}", H256::default());
 			sig_hash_stream.append(&H256::default());
 		}
 
@@ -428,20 +442,33 @@ impl TransactionInputSigner {
 			}
 			sig_hash_stream.append(&blake_2b_256_personal(&s_outputs_stream.out(), ZCASH_SHIELDED_OUTPUTS_HASH_PERSONALIZATION));
 		} else {
+                        std::println!("empty shielded_outputs {}", H256::default());
 			sig_hash_stream.append(&H256::default());
 		}
 
+                std::println!("lock time: {}", self.lock_time);
 		sig_hash_stream.append(&self.lock_time);
+                std::println!("expiry_height: {}", self.expiry_height);
 		sig_hash_stream.append(&self.expiry_height);
+                std::println!("value_balance: {}", self.value_balance);
 		sig_hash_stream.append(&self.value_balance);
+                std::println!("sighashtype: {}", sighashtype);
 		sig_hash_stream.append(&sighashtype);
 
 		sig_hash_stream.append(&self.inputs[input_index].previous_output);
 		sig_hash_stream.append(&script_pubkey.to_bytes());
+                std::println!("pubkey: {}", script_pubkey.to_bytes().to_hex::<String>());
 		sig_hash_stream.append(&self.inputs[input_index].amount);
 		sig_hash_stream.append(&self.inputs[input_index].sequence);
 
-		Ok(blake_2b_256_personal(&sig_hash_stream.out(), &personalization))
+
+
+                std::println!("personalization {}", personalization.to_hex::<String>());
+                let shs = sig_hash_stream.out();
+                std::println!("shs {}", shs.to_hex::<String>());
+                let f = blake_2b_256_personal(&shs, &personalization);
+                std::println!("final {}", f);
+		Ok(f)
 	}
 }
 

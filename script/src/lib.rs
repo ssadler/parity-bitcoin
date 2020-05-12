@@ -5,6 +5,7 @@ extern crate keys;
 extern crate log;
 extern crate primitives;
 extern crate serialization as ser;
+extern crate rustc_hex;
 
 mod builder;
 mod error;

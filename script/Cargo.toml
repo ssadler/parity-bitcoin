@@ -11,3 +11,4 @@ primitives = { path = "../primitives" }
 serialization = { path = "../serialization" }
 log = "0.4"
 blake2b_simd = "0.4"
+rustc-hex = "2"
